@@ -2,21 +2,12 @@ import customtkinter as ctk
 from tkinter import messagebox
 import pandas as pd
 import os
-import math
 import threading
+from calculos_calizas import guardar_en_excel, calcular_evaluacion
 
 # Configuración base
 ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
-
-def guardar_en_excel(datos, archivo="BaseDatos_Calizas.xlsx"):
-    df_nuevo = pd.DataFrame([datos])
-    if os.path.exists(archivo):
-        df_existente = pd.read_excel(archivo)
-        df_final = pd.concat([df_existente, df_nuevo], ignore_index=True)
-    else:
-        df_final = df_nuevo
-    df_final.to_excel(archivo, index=False)
 
 class App(ctk.CTk):
     def __init__(self):
@@ -293,81 +284,32 @@ class App(ctk.CTk):
             lbl_desc.pack(anchor="w")
 
     def generar_reporte(self, muestra, caco3, cao, mgo, sio2, fe2o3, al2o3, so3, na2o=0.0, k2o=0.0, guardar=True, loi=0.0, res_insol=0.0, alcalis=0.0):
-        if guardar:
-            loi = (cao * 0.785) + (mgo * 1.092)
-            res_insol = sio2 * 0.85
-            alcalis = na2o + (0.658 * k2o)
-            
-        advertencias_geol = []
-        if caco3 < 75: advertencias_geol.append(f"CaCO3 de {caco3}% está por debajo del >75% recomendado.")
-        if not (45 <= cao <= 52): advertencias_geol.append(f"CaO de {cao}% fuera del rango 45-52%.")
-        if not (5 <= sio2 <= 15): advertencias_geol.append(f"SiO2 de {sio2}% fuera del rango 5-15%.")
-        if not (1 <= fe2o3 <= 5): advertencias_geol.append(f"Fe2O3 de {fe2o3}% fuera del rango 1-5%.")
-        if not (1 <= al2o3 <= 6): advertencias_geol.append(f"Al2O3 de {al2o3}% fuera del rango 1-6%.")
+        r = calcular_evaluacion(caco3, cao, mgo, sio2, fe2o3, al2o3, so3, na2o, k2o,
+                                 guardar=guardar, loi=loi, res_insol=res_insol, alcalis=alcalis)
+        caco3, cao, mgo, sio2, fe2o3, al2o3, so3 = r["caco3"], r["cao"], r["mgo"], r["sio2"], r["fe2o3"], r["al2o3"], r["so3"]
+        na2o, k2o = r["na2o"], r["k2o"]
+        loi, res_insol, alcalis = r["loi"], r["res_insol"], r["alcalis"]
+        lsf, sm, am = r["lsf"], r["sm"], r["am"]
+        c3s, c2s, c3a, c4af = r["c3s"], r["c2s"], r["c3a"], r["c4af"]
+        advertencias_geol, interp_cesar = r["advertencias_geol"], r["interp_cesar"]
+        errores_norma, cumple_norma, estado_eval = r["errores_norma"], r["cumple_norma"], r["estado_eval"]
 
-        interp_cesar = []
-        if cao >= 45.0 and sio2 <= 15.0 and mgo <= 5.0:
-            interp_cesar.append("✅ Favorable: Alto CaO, baja sílice y bajo MgO.")
-        if mgo > 5.0:
-            interp_cesar.append("⚠️ Dolomitización: Presencia de MgO alto.")
-        if sio2 > 15.0 and al2o3 > 6.0:
-            interp_cesar.append("⚠️ Intercalaciones arcillosas: Niveles altos de SiO2 y Al2O3.")
-        elif sio2 > 15.0 and al2o3 <= 6.0:
-            interp_cesar.append("⚠️ Chert: Sílice excesiva.")
-        if not interp_cesar:
-            interp_cesar.append("ℹ️ Condiciones geológicas intermedias.")
+        color_ok = ("#059669", "#34d399")
+        color_warn = ("#d97706", "#fbbf24")
+        color_bad = ("#dc2626", "#f87171")
 
-        errores_norma = []
-        cumple_norma = True
-        
-        if mgo > 5.0:
-            cumple_norma = False
-            errores_norma.append(f"❌ MgO ({mgo}% > 5.0%): Expansión perjudicial.")
-        if so3 > 3.5:
-            cumple_norma = False
-            errores_norma.append(f"❌ SO3 ({so3}% > 3.5%): Altera fraguado.")
-        elif so3 < 3.0:
-            advertencias_geol.append(f"SO3 ({so3}%) debajo de recomendación (3.0%) para fraguado.")
-        if loi > 3.0:
-            cumple_norma = False
-            errores_norma.append(f"❌ LOI ({loi}% > 3.0%): Carbonatación prematura.")
-        if res_insol > 0.75:
-            cumple_norma = False
-            errores_norma.append(f"❌ Res. Insoluble ({res_insol}% > 0.75%): Exceso de impurezas.")
-        if alcalis > 0.6:
-            cumple_norma = False
-            errores_norma.append(f"❌ Álcalis ({alcalis}% > 0.6%): Riesgo de reacción álcali-agregado.")
+        if r["interp_sm"] == "Adecuado":
+            interp_sm, color_sm = "Adecuado", color_ok
+        elif r["interp_sm"] == "Mezcla difícil de clinkerizar":
+            interp_sm, color_sm = "Difícil", color_bad
+        else:
+            interp_sm, color_sm = "Fuera de rango", color_warn
 
-        denom_lsf = (2.8 * sio2) + (1.2 * al2o3) + (0.65 * fe2o3)
-        lsf = cao / denom_lsf if denom_lsf > 0 else 0
-        denom_sm = al2o3 + fe2o3
-        sm = sio2 / denom_sm if denom_sm > 0 else 0
-        am = al2o3 / fe2o3 if fe2o3 > 0 else 0
-        
-        if 2.0 <= sm <= 3.0: 
-            interp_sm = "Adecuado"
-            color_sm = ("#059669", "#34d399")
-        elif sm > 3.0: 
-            interp_sm = "Difícil"
-            color_sm = ("#dc2626", "#f87171")
-        else: 
-            interp_sm = "Fuera de rango"
-            color_sm = ("#d97706", "#fbbf24")
-            
-        if 1.3 <= am <= 2.5: 
-            interp_am = "Óptimo"
-            color_am = ("#059669", "#34d399")
-        else: 
-            interp_am = "Fuera de rango"
-            color_am = ("#d97706", "#fbbf24")
+        if r["interp_am"] == "Óptimo industrial":
+            interp_am, color_am = "Óptimo", color_ok
+        else:
+            interp_am, color_am = "Fuera de rango", color_warn
 
-        c3s = max(0.0, round((4.071 * cao) - (7.600 * sio2) - (6.718 * al2o3) - (1.430 * fe2o3) - (2.852 * so3), 2))
-        c2s = max(0.0, round((2.867 * sio2) - (0.7544 * c3s), 2))
-        c3a = max(0.0, round((2.650 * al2o3) - (1.692 * fe2o3), 2))
-        c4af = max(0.0, round(3.043 * fe2o3, 2))
-
-        estado_eval = "APTO" if cumple_norma else "NO APTO"
-        
         if guardar:
             datos = {
                 "ID Muestra": muestra, "CaCO3 (%)": caco3, "CaO (%)": cao, "MgO (%)": mgo,

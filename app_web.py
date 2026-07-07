@@ -13,195 +13,34 @@ try:
 except ImportError:
     pytesseract = None
 import re
+import io
+from calculos_calizas import (
+    guardar_en_excel, calcular_evaluacion, extraer_datos_pdf,
+    es_base_calcinada, convertir_base_seca, validar_extraccion, OXIDOS,
+)
 
 # --- Configuración de la página ---
-st.set_page_config(page_title="Evaluación de Calizas", layout="centered")
+st.set_page_config(page_title="Evaluación de Calizas", page_icon="🪨", layout="wide")
 
-# --- Función de Base de Datos ---
-def guardar_en_excel(datos, archivo="BaseDatos_Calizas.xlsx"):
-    df_nuevo = pd.DataFrame([datos])
-    if os.path.exists(archivo):
-        df_existente = pd.read_excel(archivo)
-        df_final = pd.concat([df_existente, df_nuevo], ignore_index=True)
-    else:
-        df_final = df_nuevo
-    df_final.to_excel(archivo, index=False)
-
-def evaluar_y_mostrar_resultados(muestra_id, caco3, cao, mgo, sio2, fe2o3, al2o3, so3, na2o=0.0, k2o=0.0, p2o5=0.0, pb=0.0, cd=0.0, as_ppm=0.0, drx="Calcita", petrografia="Micrítica de grano fino", guardar=True, loi=0.0, res_insol=0.0, alcalis=0.0):
-    # Convertir posibles None/NaN a 0.0 para cálculos seguros y redondear
-    def safe_float(val):
-        if val is None or (isinstance(val, float) and math.isnan(val)):
-            return 0.0
-        return round(float(val), 2)
-
-    caco3 = safe_float(caco3)
-    cao = safe_float(cao)
-    mgo = safe_float(mgo)
-    sio2 = safe_float(sio2)
-    fe2o3 = safe_float(fe2o3)
-    al2o3 = safe_float(al2o3)
-    so3 = safe_float(so3)
-    na2o = safe_float(na2o)
-    k2o = safe_float(k2o)
-    p2o5 = safe_float(p2o5)
-    pb = safe_float(pb)
-    cd = safe_float(cd)
-    as_ppm = safe_float(as_ppm)
-    
-    if guardar:
-        loi = (cao * 0.785) + (mgo * 1.092)
-        res_insol = sio2 * 0.85
-        alcalis = na2o + (0.658 * k2o)
-    else:
-        loi = safe_float(loi)
-        res_insol = safe_float(res_insol)
-        alcalis = safe_float(alcalis)
-
-    # Calcular LSF (Evitar división por cero)
-    denom_lsf = (2.8 * sio2) + (1.2 * al2o3) + (0.65 * fe2o3)
-    lsf = cao / denom_lsf if denom_lsf > 0 else 0
-    
-    # Módulo de Sílice (SM)
-    denom_sm = al2o3 + fe2o3
-    sm = sio2 / denom_sm if denom_sm > 0 else 0
-    
-    # Módulo de Alúmina (AM)
-    am = al2o3 / fe2o3 if fe2o3 > 0 else 0
-    
-    # Interpretaciones SM/AM
-    if 2.0 <= sm <= 3.0:
-        interp_sm = "Adecuado"
-    elif sm > 3.0:
-        interp_sm = "Mezcla difícil de clinkerizar"
-    else:
-        interp_sm = "Bajo (Fuera de rango óptimo)"
-        
-    if 1.3 <= am <= 2.5:
-        interp_am = "Óptimo industrial"
-    else:
-        interp_am = "Fuera de rango óptimo"
-    
-    # --- Cálculo de Fases Minerales (Ecuaciones de Bogue) ---
-    c3s = (4.071 * cao) - (7.600 * sio2) - (6.718 * al2o3) - (1.430 * fe2o3) - (2.852 * so3)
-    c3s = max(0.0, round(c3s, 2))
-    
-    c2s = (2.867 * sio2) - (0.7544 * c3s)
-    c2s = max(0.0, round(c2s, 2))
-    
-    c3a = (2.650 * al2o3) - (1.692 * fe2o3)
-    c3a = max(0.0, round(c3a, 2))
-    
-    c4af = 3.043 * fe2o3
-    c4af = max(0.0, round(c4af, 2))
-
-    # --- Evaluaciones Geológicas / Óxidos ---
-    advertencias_geol = []
-    if caco3 < 75:
-        advertencias_geol.append(f"CaCO3 de {caco3}% está por debajo del recomendado (>75%).")
-    if not (45 <= cao <= 52):
-        advertencias_geol.append(f"CaO de {cao}% está fuera del rango óptimo (45-52%).")
-    if not (5 <= sio2 <= 15):
-        advertencias_geol.append(f"SiO2 de {sio2}% está fuera del rango recomendado (5-15%).")
-    if not (1 <= fe2o3 <= 5):
-        advertencias_geol.append(f"Fe2O3 de {fe2o3}% está fuera del rango recomendado (1-5%).")
-    if not (1 <= al2o3 <= 6):
-        advertencias_geol.append(f"Al2O3 de {al2o3}% está fuera del rango recomendado (1-6%).")
-
-    # --- Interpretación Regional (Calizas del Cesar) ---
-    interp_cesar = []
-    if cao >= 45.0 and sio2 <= 15.0 and mgo <= 5.0:
-        interp_cesar.append("✅ Depósito Favorable: Alto CaO, baja sílice y bajo MgO.")
-
-    if mgo > 5.0:
-        interp_cesar.append("⚠️ Problemático - Dolomitización: Presencia de MgO alto.")
-
-    if sio2 > 15.0 and al2o3 > 6.0:
-        interp_cesar.append("⚠️ Problemático - Intercalaciones arcillosas: Niveles altos de SiO2 y Al2O3.")
-    elif sio2 > 15.0 and al2o3 <= 6.0:
-        interp_cesar.append("⚠️ Problemático - Chert: Sílice excesiva.")
-        
-    if not interp_cesar:
-        interp_cesar.append("ℹ️ Condiciones geológicas intermedias u ordinarias.")
-
-    # --- Evaluaciones de Calidad ASTM C150 / NTC 321 ---
-    errores_norma = []
-    cumple_norma = True
-    
-    if mgo > 5.0:
-        cumple_norma = False
-        errores_norma.append(f"MgO ({mgo}%): Supera el límite de 5.0%. Importancia: Evita la expansión perjudicial en el cemento endurecido.")
-        
-    if so3 > 3.5:
-        cumple_norma = False
-        errores_norma.append(f"SO3 ({so3}%): Supera el límite de 3.5%. Importancia: Controla el tiempo de fraguado y evita expansiones tardías.")
-    elif so3 < 3.0:
-        advertencias_geol.append(f"SO3 ({so3}%) está por debajo del mínimo recomendado (3.0%). Importancia: Controla el tiempo de fraguado.")
-        
-    if loi > 3.0:
-        cumple_norma = False
-        errores_norma.append(f"LOI ({loi}%): Supera el límite de 3.0%. Importancia: Indica una posible prehidratación o carbonatación indeseada.")
-        
-    if res_insol > 0.75:
-        cumple_norma = False
-        errores_norma.append(f"Residuo Insoluble ({res_insol}%): Supera el límite de 0.75%. Importancia: Control de impurezas (cuarzo u otros silicatos no reactivos).")
-        
-    if alcalis > 0.6:
-        cumple_norma = False
-        errores_norma.append(f"Álcalis ({alcalis}%): Supera el límite de 0.6%. Importancia: Previene la reacción álcali-agregado nociva en el hormigón.")
-
-    estado_eval = "APTO" if cumple_norma else "NO APTO"
-
-    # --- Motor de Dictamen Normativo (5 Perfiles) ---
-    perfil_a = {"nombre": "Industria del Cemento", "norma": "NTC 121 y NTC 321", "estado": "Apto", "razon": ""}
-    if mgo >= 5.0:
-        perfil_a["estado"] = "No Apto"
-        perfil_a["razon"] = f"MgO ({mgo}%) excede límite 5% (expansión)."
-    elif alcalis > 0.6:
-        perfil_a["estado"] = "No Apto"
-        perfil_a["razon"] = f"Álcalis ({alcalis}%) exceden 0.6%."
-    elif so3 > 3.5:
-        perfil_a["estado"] = "No Apto"
-        perfil_a["razon"] = f"SO3 ({so3}%) excede 3.5%."
-    elif p2o5 > 0.5:
-        perfil_a["estado"] = "No Apto"
-        perfil_a["razon"] = f"P2O5 ({p2o5}%) por encima de trazas."
-    
-    perfil_b = {"nombre": "Uso Agrícola", "norma": "NTC 1927", "estado": "Apto", "razon": "Buen aporte neutralizante."}
-    if pb > 100 or cd > 39 or as_ppm > 41:
-        perfil_b["estado"] = "No Apto"
-        perfil_b["razon"] = "Exceso de metales pesados (Pb, Cd o As)."
-    elif mgo > 9.0:
-        perfil_b["estado"] = "Apto con Condicionamiento"
-        perfil_b["razon"] = "Cal Dolomítica de alto valor agrícola."
-    
-    perfil_c = {"nombre": "Agregados para Construcción", "norma": "NTC 174 e INVIAS", "estado": "Apto", "razon": "Requiere revisión petrográfica manual."}
-    if cao > 45 and sio2 < 15:
-        perfil_c["estado"] = "Apto con Condicionamiento"
-        perfil_c["razon"] = "Apta para cemento; uso como agregado requiere validar dureza."
-    else:
-        perfil_c["estado"] = "Apto"
-        perfil_c["razon"] = "Caliza silícea. Validar dureza física."
-        
-    perfil_d = {"nombre": "Siderúrgica (Fundentes)", "norma": "ASTM C911", "estado": "Apto", "razon": ""}
-    if caco3 <= 95:
-        perfil_d["estado"] = "No Apto"
-        perfil_d["razon"] = f"CaCO3 ({caco3}%) no supera el 95%."
-    elif sio2 >= 1.5:
-        perfil_d["estado"] = "No Apto"
-        perfil_d["razon"] = f"SiO2 ({sio2}%) mayor o igual a 1.5%."
-    elif so3 > 0.5 or p2o5 > 0.1:
-        perfil_d["estado"] = "No Apto"
-        perfil_d["razon"] = "Azufre o fósforo por encima de trazas."
-        
-    perfil_e = {"nombre": "Usos Químicos (Vidrio)", "norma": "ASTM C25", "estado": "Apto", "razon": ""}
-    if fe2o3 > 0.1:
-        perfil_e["estado"] = "No Apto"
-        perfil_e["razon"] = f"Fe2O3 ({fe2o3}%) excede 0.1% (tiñe el vidrio)."
-
-    dictamenes_calc = [perfil_a, perfil_b, perfil_c, perfil_d, perfil_e]
+def evaluar_y_mostrar_resultados(muestra_id, caco3, cao, mgo, sio2, fe2o3, al2o3, so3, na2o=0.0, k2o=0.0, p2o5=0.0, pb=0.0, cd=0.0, as_ppm=0.0, drx="Calcita", petrografia="Micrítica de grano fino", guardar=True, loi=0.0, res_insol=0.0, alcalis=0.0, fuente="", extras=None, persistir=None):
+    # guardar controla el recálculo de LOI/res_insol/álcalis; persistir controla la
+    # escritura en Excel (por defecto van juntos, pero al re-renderizar resultados
+    # tras un rerun de Streamlit se pasa persistir=False para no duplicar filas)
+    if persistir is None:
+        persistir = guardar
+    r = calcular_evaluacion(caco3, cao, mgo, sio2, fe2o3, al2o3, so3, na2o, k2o, p2o5, pb, cd, as_ppm,
+                             petrografia, guardar, loi, res_insol, alcalis, extras=extras)
+    caco3, cao, mgo, sio2, fe2o3, al2o3, so3 = r["caco3"], r["cao"], r["mgo"], r["sio2"], r["fe2o3"], r["al2o3"], r["so3"]
+    na2o, k2o, p2o5, pb, cd, as_ppm = r["na2o"], r["k2o"], r["p2o5"], r["pb"], r["cd"], r["as_ppm"]
+    loi, res_insol, alcalis = r["loi"], r["res_insol"], r["alcalis"]
+    lsf, sm, am, interp_sm, interp_am = r["lsf"], r["sm"], r["am"], r["interp_sm"], r["interp_am"]
+    c3s, c2s, c3a, c4af = r["c3s"], r["c2s"], r["c3a"], r["c4af"]
+    advertencias_geol, interp_cesar = r["advertencias_geol"], r["interp_cesar"]
+    errores_norma, cumple_norma, estado_eval = r["errores_norma"], r["cumple_norma"], r["estado_eval"]
+    dictamenes_calc = r["dictamenes"]
 
     # --- Guardar en Excel si corresponde ---
-    if guardar:
+    if persistir:
         datos = {
             "ID Muestra": muestra_id,
             "CaCO3 (%)": caco3,
@@ -230,150 +69,185 @@ def evaluar_y_mostrar_resultados(muestra_id, caco3, cao, mgo, sio2, fe2o3, al2o3
             "Modulo de Silice (SM)": round(sm, 3),
             "Modulo de Alumina (AM)": round(am, 3),
             "Estado Evaluacion": estado_eval,
-            "Dictamen Cemento": perfil_a["estado"],
-            "Dictamen Agrícola": perfil_b["estado"],
-            "Dictamen Agregados": perfil_c["estado"],
-            "Dictamen Siderúrgica": perfil_d["estado"],
-            "Dictamen Vidrio": perfil_e["estado"]
+            "Archivo Fuente": fuente,
+            "Fecha Registro": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
         }
+        for perfil in dictamenes_calc:
+            datos[f"Dictamen {perfil['nombre']}"] = perfil["estado"]
+        # Ensayos opcionales: se guardan solo los que se midieron
+        etiquetas_extras = {
+            "pn": "PN (%)", "blancura": "Blancura (%)", "tamano_particula": "Tamaño Partícula (µm)",
+            "humedad": "Humedad (%)", "cao_disponible": "CaO Disponible (%)",
+            "cao_reactivo": "CaO Reactivo (%)", "resistencia": "Resistencia (MPa)", "absorcion": "Absorción (%)",
+        }
+        for k, etiqueta in etiquetas_extras.items():
+            if (extras or {}).get(k) is not None:
+                datos[etiqueta] = extras[k]
         try:
             guardar_en_excel(datos)
             st.success(f"Muestra '{muestra_id}' evaluada y registrada con éxito en Excel.")
         except PermissionError:
             st.error("Error al escribir en Excel: El archivo 'BaseDatos_Calizas.xlsx' está abierto. Por favor, ciérrelo e intente de nuevo.")
             st.stop()
-    else:
+    elif not guardar:
         st.info(f"Mostrando registro histórico para la muestra '{muestra_id}'.")
 
     # --- Mostrar Conclusiones en Pantalla ---
     st.write("---")
-    st.subheader("Conclusiones de la Evaluación")
-    
-    st.subheader("Parámetros Calculados")
-    col_c1, col_c2, col_c3 = st.columns(3)
-    with col_c1:
-        st.metric(label="LOI Calculado (%)", value=f"{round(loi, 3)}")
-    with col_c2:
-        st.metric(label="Residuo Insoluble Calc. (%)", value=f"{round(res_insol, 3)}")
-    with col_c3:
-        st.metric(label="Álcalis Equivalentes (%)", value=f"{round(alcalis, 3)}")
-    
-    st.subheader("Módulos de Control Químico")
-    col_mod1, col_mod2, col_mod3 = st.columns(3)
-    with col_mod1:
-        st.metric(label="Saturación de Cal (LSF)", value=f"{round(lsf, 3)}")
-    with col_mod2:
-        st.metric(label="Módulo de Sílice (SM)", value=f"{round(sm, 3)}")
-        if interp_sm == "Adecuado":
-            st.success(interp_sm)
-        elif interp_sm == "Mezcla difícil de clinkerizar":
-            st.error(interp_sm)
-        else:
-            st.warning(interp_sm)
-    with col_mod3:
-        st.metric(label="Módulo de Alúmina (AM)", value=f"{round(am, 3)}")
-        if interp_am == "Óptimo industrial":
-            st.success(interp_am)
-        else:
-            st.warning(interp_am)
-    
-    st.write("---")
-    st.subheader("Mineralogía Potencial del Clinker (Bogue)")
-    col_m1, col_m2 = st.columns(2)
-    with col_m1:
-        st.metric("Alita (C3S)", f"{c3s}%")
-        st.caption("Aporta la resistencia temprana")
-        st.metric("Aluminato Tricálcico (C3A)", f"{c3a}%")
-        st.caption("Responsable del fraguado rápido")
-    with col_m2:
-        st.metric("Belita (C2S)", f"{c2s}%")
-        st.caption("Aporta la resistencia tardía")
-        st.metric("Ferroaluminato (C4AF)", f"{c4af}%")
-        st.caption("Actúa como fundente en el horno")
-    st.write("---")
-    
-    st.subheader("Interpretación Geoquímica (Calizas del Cesar)")
-    for interp in interp_cesar:
-        if "✅" in interp:
-            st.success(interp)
-        elif "⚠️" in interp:
-            st.warning(interp)
-        else:
-            st.info(interp)
-            
-    st.write("---")
 
+    aptos = sum(1 for p in dictamenes_calc if p["estado"] == "Apto")
+    no_aptos = sum(1 for p in dictamenes_calc if p["estado"] == "No Apto")
+    pendientes = len(dictamenes_calc) - aptos - no_aptos
+
+    # Veredicto principal siempre visible
     if cumple_norma:
-        st.success("🏆 APTITUD DE LA CALIZA: APTO para Cemento Portland")
-        st.info("La muestra cumple satisfactoriamente con los límites máximos establecidos por la norma ASTM C150 y NTC 321.")
+        st.success(f"🏆 **{muestra_id} — APTO para Cemento Portland** · Cumple ASTM C150 / NTC 321")
     else:
-        st.error("❌ APTITUD DE LA CALIZA: NO APTO para Cemento Portland")
-        st.warning("Se detectaron valores que exceden los límites normativos obligatorios:")
-        for err in errores_norma:
-            st.write(f"- {err}")
-            
-    # Mostrar advertencias geológicas / de recomendación (no excluyentes)
-    if advertencias_geol:
-        with st.expander("Ver observaciones de rangos recomendados y sugerencias"):
+        st.error(f"❌ **{muestra_id} — NO APTO para Cemento Portland** · Excede límites de ASTM C150 / NTC 321")
+
+    col_k1, col_k2, col_k3, col_k4 = st.columns(4)
+    col_k1.metric("Saturación de Cal (LSF)", f"{round(lsf, 3)}")
+    col_k2.metric("✅ Usos aptos", f"{aptos}/{len(dictamenes_calc)}")
+    col_k3.metric("❌ No aptos", no_aptos)
+    col_k4.metric("🔬 Requieren ensayos", pendientes)
+
+    tab_quim, tab_horno, tab_usos, tab_geo = st.tabs([
+        "📊 Química y norma", "🔥 Clinker y módulos",
+        f"🏭 Usos industriales ({len(dictamenes_calc)})", "🪨 Geología",
+    ])
+
+    with tab_quim:
+        c1, c2, c3 = st.columns(3)
+        c1.metric("LOI Calculado (%)", f"{round(loi, 3)}")
+        c2.metric("Residuo Insoluble (%)", f"{round(res_insol, 3)}")
+        c3.metric("Álcalis Equivalentes (%)", f"{round(alcalis, 3)}")
+
+        if errores_norma:
+            st.markdown("**Desviaciones frente a ASTM C150 / NTC 321:**")
+            for err in errores_norma:
+                st.error(err)
+        else:
+            st.info("Sin desviaciones frente a los límites obligatorios de la norma.")
+
+        if advertencias_geol:
+            with st.expander(f"Observaciones de rangos recomendados ({len(advertencias_geol)})"):
+                for adv in advertencias_geol:
+                    st.write(f"⚠️ {adv}")
+
+    with tab_horno:
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("Saturación de Cal (LSF)", f"{round(lsf, 3)}")
+        with c2:
+            st.metric("Módulo de Sílice (SM)", f"{round(sm, 3)}")
+            if interp_sm == "Adecuado":
+                st.success(interp_sm)
+            elif interp_sm == "Mezcla difícil de clinkerizar":
+                st.error(interp_sm)
+            else:
+                st.warning(interp_sm)
+        with c3:
+            st.metric("Módulo de Alúmina (AM)", f"{round(am, 3)}")
+            if interp_am == "Óptimo industrial":
+                st.success(interp_am)
+            else:
+                st.warning(interp_am)
+
+        st.write("---")
+        st.markdown("**Mineralogía potencial del clinker (Bogue)**")
+        b1, b2, b3, b4 = st.columns(4)
+        b1.metric("Alita (C3S)", f"{c3s}%")
+        b1.caption("Resistencia temprana")
+        b2.metric("Belita (C2S)", f"{c2s}%")
+        b2.caption("Resistencia tardía")
+        b3.metric("C3A", f"{c3a}%")
+        b3.caption("Fraguado rápido")
+        b4.metric("C4AF", f"{c4af}%")
+        b4.caption("Fundente en el horno")
+
+        st.write("---")
+        reporte_conclusion = []
+        if mgo > 5.0:
+            reporte_conclusion.append("Muestra no apta por riesgo de expansión debido a la formación de periclasa (MgO > 5%). Posible presencia de dolomita que requiere confirmación por DRX.")
+        if alcalis > 0.6:
+            reporte_conclusion.append("Riesgo de reacción álcali-sílice preventiva; se requiere control de álcalis en la formulación.")
+        if 2.0 <= sm <= 3.0 and 1.3 <= am <= 2.5:
+            reporte_conclusion.append("Fácil de clinkerizar (Módulos SM y AM en rango óptimo).")
+        elif sm > 3.0:
+            reporte_conclusion.append("Requiere mayor temperatura de horno (Módulo de Sílice elevado).")
+        elif am > 2.5 or am < 1.3:
+            reporte_conclusion.append("Presenta riesgo de anillos en el horno o desequilibrio en fundentes (Módulo de Alúmina fuera de rango).")
+        if not reporte_conclusion:
+            reporte_conclusion.append("La muestra presenta características estándar sin riesgos mayores identificados.")
+        for rep in reporte_conclusion:
+            st.write(f"📝 {rep}")
+
+        if "Micrítica" in petrografia:
+            st.info(f"🔬 **Petrografía ({petrografia}):** caliza micrítica, reaccionará más rápido en el horno que una esparítica, favoreciendo la clinkerización.")
+        elif "Esparítica" in petrografia:
+            st.info(f"🔬 **Petrografía ({petrografia}):** caliza esparítica, cristales más grandes; puede requerir mayor temperatura o tiempo de residencia en el horno.")
+
+    with tab_usos:
+        for titulo, estado in [("✅ Apto", "Apto"), ("🔬 Requiere ensayos", "Requiere ensayos"), ("❌ No Apto", "No Apto")]:
+            perfiles = [p for p in dictamenes_calc if p["estado"] == estado]
+            if not perfiles:
+                continue
+            st.markdown(f"#### {titulo} ({len(perfiles)})")
+            cols = st.columns(3)
+            for i, perfil in enumerate(perfiles):
+                with cols[i % 3], st.container(border=True):
+                    st.markdown(f"**{perfil['nombre']}**")
+                    st.caption(perfil["aplicacion"])
+                    st.write(perfil["razon"])
+                    st.caption(f"Norma: {perfil['norma']}")
+
+    with tab_geo:
+        st.markdown("**Interpretación Geoquímica (Calizas del Cesar)**")
+        for interp in interp_cesar:
+            if "✅" in interp:
+                st.success(interp)
+            elif "⚠️" in interp:
+                st.warning(interp)
+            else:
+                st.info(interp)
+        if advertencias_geol:
+            st.markdown("**Observaciones de rangos recomendados:**")
             for adv in advertencias_geol:
                 st.write(f"⚠️ {adv}")
 
-    st.write("---")
-    st.subheader("Reporte de Conclusión Textual")
-    reporte_conclusion = []
-    
-    if mgo > 5.0:
-        reporte_conclusion.append("Muestra no apta por riesgo de expansión debido a la formación de periclasa (MgO > 5%). Posible presencia de dolomita que requiere confirmación por DRX.")
-    if alcalis > 0.6:
-        reporte_conclusion.append("Riesgo de reacción álcali-sílice preventiva; se requiere control de álcalis en la formulación.")
-        
-    if 2.0 <= sm <= 3.0 and 1.3 <= am <= 2.5:
-        reporte_conclusion.append("Fácil de clinkerizar (Módulos SM y AM en rango óptimo).")
-    elif sm > 3.0:
-        reporte_conclusion.append("Requiere mayor temperatura de horno (Módulo de Sílice elevado).")
-    elif am > 2.5 or am < 1.3:
-        reporte_conclusion.append("Presenta riesgo de anillos en el horno o desequilibrio en fundentes (Módulo de Alúmina fuera de rango).")
-        
-    if not reporte_conclusion:
-        reporte_conclusion.append("La muestra presenta características estándar sin riesgos mayores identificados.")
-        
-    for rep in reporte_conclusion:
-        st.write(f"📝 {rep}")
 
-    st.write("---")
-    st.subheader("Motor de Dictamen Normativo (Sectores Industriales)")
-    
-    if "Micrítica" in petrografia:
-        st.info(f"🔬 **Análisis Petrográfico ({petrografia}):** Al ser una caliza micrítica, reaccionará más rápido en el horno que una esparítica, favoreciendo la clinkerización.")
-    elif "Esparítica" in petrografia:
-        st.info(f"🔬 **Análisis Petrográfico ({petrografia}):** Al ser una caliza esparítica, presenta cristales más grandes, lo que puede requerir mayor temperatura o tiempo de residencia en el horno para reaccionar completamente.")
-    
-    cols = st.columns(3)
-    for i, perfil in enumerate(dictamenes_calc):
-        col = cols[i % 3]
-        with col:
-            st.markdown(f"**{perfil['nombre']}**")
-            st.caption(f"Norma: {perfil['norma']}")
-            if perfil["estado"] == "Apto":
-                st.success("✅ Apto")
-                st.write(perfil["razon"])
-            elif perfil["estado"] == "Apto con Condicionamiento":
-                st.warning(f"⚠️ {perfil['estado']}")
-                st.write(perfil["razon"])
-            else:
-                st.error(f"❌ No Apto")
-                st.write(perfil["razon"])
-            st.write("---")
+def campos_ensayos_opcionales(prefijo):
+    """Ensayos opcionales: si quedan vacíos, los dictámenes que dependen de ellos
+    salen como 'Requiere ensayos' en lugar de inventar un valor."""
+    with st.expander("Ensayos adicionales (opcionales — habilitan más dictámenes industriales)"):
+        c1, c2 = st.columns(2)
+        with c1:
+            pn = st.number_input("Poder Neutralizante PN (%)", min_value=0.0, max_value=200.0, value=None, key=prefijo + "pn", help="Si se deja vacío, se estima con el CaCO3 equivalente")
+            blancura = st.number_input("Blancura (%)", min_value=0.0, max_value=100.0, value=None, key=prefijo + "blancura")
+            tamano = st.number_input("Tamaño de partícula (µm)", min_value=0.0, value=None, key=prefijo + "tamano")
+            humedad = st.number_input("Humedad (%)", min_value=0.0, max_value=100.0, value=None, key=prefijo + "humedad")
+        with c2:
+            cao_disp = st.number_input("CaO disponible (%)", min_value=0.0, max_value=100.0, value=None, key=prefijo + "caodisp")
+            cao_react = st.number_input("CaO reactivo (%)", min_value=0.0, max_value=100.0, value=None, key=prefijo + "caoreact")
+            resistencia = st.number_input("Resistencia a compresión (MPa)", min_value=0.0, value=None, key=prefijo + "resist")
+            absorcion = st.number_input("Absorción (%)", min_value=0.0, max_value=100.0, value=None, key=prefijo + "absor")
+    return {"pn": pn, "blancura": blancura, "tamano_particula": tamano, "humedad": humedad,
+            "cao_disponible": cao_disp, "cao_reactivo": cao_react,
+            "resistencia": resistencia, "absorcion": absorcion}
 
 
 # --- Interfaz Web ---
-st.title("Evaluación Geoquímica de Calizas")
-st.subheader("Módulo Cemento Portland (ASTM C150 / NTC 321)")
+st.title("🪨 Evaluación Geoquímica de Calizas")
+st.caption("Dictamen multi-industria (17 usos) · ASTM / NTC / ISO · Cemento Portland, cales, cargas minerales y más")
 
+st.sidebar.title("🪨 Calizas")
+st.sidebar.caption("Evaluación geoquímica multi-uso")
 modo = st.sidebar.radio("Modo de Operación", ["Evaluar Nueva Muestra", "Consultar Historial"])
+st.sidebar.divider()
+st.sidebar.caption("💡 Suba el PDF del laboratorio (XRF) en la pestaña *Procesar PDF / Imagen* — la extracción es automática.")
 
 if modo == "Evaluar Nueva Muestra":
-    tab_manual, tab_lote, tab_img = st.tabs(["Entrada Manual", "Carga por Lote (Excel/CSV)", "Procesar Imagen (OCR)"])
+    tab_img, tab_manual, tab_lote = st.tabs(["📄 Procesar PDF / Imagen", "✍️ Entrada Manual", "📑 Carga por Lote (Excel/CSV)"])
     
     with tab_manual:
         with st.form("form_calizas"):
@@ -398,16 +272,30 @@ if modo == "Evaluar Nueva Muestra":
                 cd = st.number_input("Cadmio - Cd (ppm)", min_value=0.0, value=None)
                 as_ppm = st.number_input("Arsénico - As (ppm)", min_value=0.0, value=None)
                 petrografia = st.selectbox("Textura Dominante (Petrografía)", ["Micrítica de grano fino", "Esparítica de grano grueso"])
-    
+
+            extras_man = campos_ensayos_opcionales("man_")
+
             submit_button = st.form_submit_button(label="Calcular LSF y Evaluar Muestra")
-    
+
         if submit_button:
             if muestra_id == "":
                 st.error("Por favor, asigne un ID a la muestra.")
             else:
-                evaluar_y_mostrar_resultados(
-                    muestra_id, caco3, cao, mgo, sio2, fe2o3, al2o3, so3, na2o, k2o, p2o5, pb, cd, as_ppm, drx, petrografia, guardar=True
+                # Guardar los argumentos en sesión: los resultados sobreviven a los
+                # reruns de Streamlit (cambiar de pestaña, tocar un widget, etc.)
+                st.session_state["eval_manual"] = dict(
+                    muestra_id=muestra_id, caco3=caco3, cao=cao, mgo=mgo, sio2=sio2,
+                    fe2o3=fe2o3, al2o3=al2o3, so3=so3, na2o=na2o, k2o=k2o, p2o5=p2o5,
+                    pb=pb, cd=cd, as_ppm=as_ppm, drx=drx, petrografia=petrografia,
+                    fuente="Entrada manual", extras=extras_man,
                 )
+                st.session_state["eval_manual_persistir"] = True
+
+        if st.session_state.get("eval_manual"):
+            evaluar_y_mostrar_resultados(
+                **st.session_state["eval_manual"], guardar=True,
+                persistir=st.session_state.pop("eval_manual_persistir", False),
+            )
                 
     with tab_lote:
         st.write("Cargue un archivo (.xlsx o .csv) con múltiples muestras.")
@@ -448,25 +336,114 @@ if modo == "Evaluar Nueva Muestra":
                             row.get("SO3", 0.0), row.get("NA2O", 0.0), row.get("K2O", 0.0),
                             row.get("P2O5", 0.0), row.get("PB", 0.0), row.get("CD", 0.0), row.get("AS", 0.0),
                             str(row.get("DRX", "Calcita")), str(row.get("PETROGRAFIA", "Micrítica de grano fino")),
-                            guardar=True
+                            guardar=True, fuente=archivo_up.name
                         )
             except Exception as e:
                 st.error(f"Error al procesar el archivo: {e}")
 
     with tab_img:
-        st.write("Cargue una imagen de resultados de laboratorio o un difractograma para extraer datos (OCR).")
-        img_up = st.file_uploader("Seleccionar Imagen", type=["png", "jpg", "jpeg"])
-        
+        st.write("Cargue uno o varios PDFs del laboratorio (recomendado), o una imagen de resultados.")
+        archivos = st.file_uploader("Seleccionar PDF(s) o Imagen", type=["pdf", "png", "jpg", "jpeg"], accept_multiple_files=True)
+
         api_key = st.text_input("API Key de Google Gemini (Opcional, recomendada para gráficos complejos)", type="password", help="Obtén tu API Key gratuita en Google AI Studio para una lectura perfecta.")
-        
+
         if "ocr_data" not in st.session_state:
             st.session_state["ocr_data"] = None
-            
-        if img_up is not None:
-            image = Image.open(img_up)
+
+        hay_pdf = any(f.name.lower().endswith(".pdf") for f in archivos) if archivos else False
+        convertir = True
+        loi_manual = 0.0
+        if hay_pdf:
+            convertir = st.checkbox(
+                "Convertir de base calcinada a base seca (reportes XRF)", value=True,
+                help="El XRF reporta óxidos que suman ~100% sin LOI. La conversión recalcula a base seca y estima el CaCO3 equivalente."
+            )
+            if convertir:
+                loi_manual = st.number_input("LOI medido (%) — deje 0 para estimarlo estequiométricamente", min_value=0.0, max_value=60.0, value=0.0, format="%.2f")
+
+        def procesar_pdf(archivo):
+            datos, texto = extraer_datos_pdf(archivo)
+            if datos and convertir and es_base_calcinada(datos):
+                datos = convertir_base_seca(datos, loi_manual or None)
+            return datos, texto
+
+        img_up = archivos[0] if archivos and len(archivos) == 1 else None
+        imagen_ocr = None
+
+        if archivos and len(archivos) > 1:
+            # --- Modo lote: varios PDFs de una vez ---
+            filas = []
+            for f in archivos:
+                if not f.name.lower().endswith(".pdf"):
+                    st.warning(f"'{f.name}': el modo lote solo procesa PDFs; omitido.")
+                    continue
+                try:
+                    d, _ = procesar_pdf(f)
+                except Exception as e:
+                    st.warning(f"'{f.name}': error al leer ({e}); omitido.")
+                    continue
+                if not d:
+                    st.warning(f"'{f.name}': sin tabla de resultados (¿es el espectro?); omitido.")
+                    continue
+                filas.append({
+                    "Archivo": f.name,
+                    "ID Muestra": d.get("muestra_id") or f.name.rsplit(".", 1)[0],
+                    **{k: d.get(k, 0.0) for k in ("caco3",) + OXIDOS + ("pb", "cd", "as_ppm")},
+                })
+            if filas:
+                st.info(f"{len(filas)} reporte(s) extraído(s). Revise y corrija los valores (la tabla es editable) antes de guardar:")
+                df_lote_pdf = st.data_editor(pd.DataFrame(filas), hide_index=True)
+                if st.button("Evaluar y Guardar Todas las Muestras"):
+                    for _, fila in df_lote_pdf.iterrows():
+                        st.markdown(f"### Evaluación: {fila['ID Muestra']}")
+                        evaluar_y_mostrar_resultados(
+                            str(fila["ID Muestra"]), fila["caco3"], fila["cao"], fila["mgo"],
+                            fila["sio2"], fila["fe2o3"], fila["al2o3"], fila["so3"],
+                            fila["na2o"], fila["k2o"], pb=fila["pb"], cd=fila["cd"], as_ppm=fila["as_ppm"],
+                            guardar=True, fuente=str(fila["Archivo"]),
+                        )
+        elif img_up is not None and img_up.name.lower().endswith(".pdf"):
+            # PDF digital: se lee la capa de texto directamente, sin OCR ni IA
+            try:
+                # Si cambió el archivo (o la conversión), limpiar resultados de la muestra anterior
+                firma_pdf = (img_up.name, img_up.size, convertir, loi_manual)
+                if st.session_state.get("firma_pdf") != firma_pdf:
+                    st.session_state.pop("eval_ocr", None)
+                    st.session_state["firma_pdf"] = firma_pdf
+                datos_pdf, texto_pdf = procesar_pdf(img_up)
+                st.session_state["raw_ocr_text"] = texto_pdf
+                if datos_pdf:
+                    st.session_state["ocr_data"] = datos_pdf
+                    st.success("✅ Datos extraídos directamente del PDF (sin OCR). Revíselos abajo antes de guardar.")
+                    if "loi_estimado" in datos_pdf:
+                        origen = "medido" if loi_manual else "estimado"
+                        st.info(f"Convertido a base seca (LOI {origen}: {datos_pdf['loi_estimado']}%). CaCO3 estimado: {datos_pdf['caco3']}%.")
+                    elif datos_pdf.get("caco3", 0.0) == 0.0:
+                        st.info("El reporte XRF no incluye CaCO3. Complételo manualmente en el formulario.")
+                elif texto_pdf.strip():
+                    st.session_state["ocr_data"] = None
+                    st.error("Este PDF no contiene la tabla de resultados (¿es solo el espectro?). Suba el reporte 'Sample results'.")
+                else:
+                    # PDF escaneado sin capa de texto: rescatar la imagen embebida y pasarla al flujo OCR
+                    from pypdf import PdfReader
+                    img_up.seek(0)
+                    paginas = PdfReader(img_up).pages
+                    if paginas and paginas[0].images:
+                        imagen_ocr = Image.open(io.BytesIO(paginas[0].images[0].data))
+                        st.info("PDF escaneado (sin capa de texto): se procesará como imagen con OCR/IA.")
+                    else:
+                        st.error("PDF sin texto ni imagen extraíble. Intente con una captura de pantalla del reporte.")
+            except Exception as e:
+                st.error(f"Error al leer el PDF: {e}")
+        elif img_up is not None:
+            imagen_ocr = Image.open(img_up)
+
+        if imagen_ocr is not None:
+            image = imagen_ocr
             st.image(image, caption="Imagen cargada", use_container_width=True)
             
             if st.button("Extraer Datos (IA / OCR)"):
+                st.session_state.pop("eval_ocr", None)
                 with st.spinner("Procesando imagen..."):
                     texto_extraido = ""
                     
@@ -569,15 +546,17 @@ if modo == "Evaluar Nueva Muestra":
                         "k2o": extract_val(r'K.{0,15}?(\d+[\.,]\d+)', t)
                     }
                     
-        if st.session_state["ocr_data"] is not None:
+        if st.session_state["ocr_data"] is not None and not (archivos and len(archivos) > 1):
             st.info("Revisa y corrige los datos extraídos antes de guardar:")
+            for aviso in validar_extraccion(st.session_state["ocr_data"]):
+                st.warning(f"⚠️ {aviso}")
             with st.expander("Ver texto sin formato extraído por OCR (Debug)"):
                 st.text(st.session_state.get("raw_ocr_text", "No se extrajo texto."))
             with st.form("form_ocr"):
                 col_o1, col_o2 = st.columns(2)
                 ocr_d = st.session_state["ocr_data"]
                 with col_o1:
-                    m_id_o = st.text_input("ID Muestra (OCR)", value="OCR-001")
+                    m_id_o = st.text_input("ID Muestra (OCR)", value=str(ocr_d.get("muestra_id") or "OCR-001"))
                     caco3_o = st.number_input("CaCO3 (%)", value=float(ocr_d.get("caco3", 0.0)), format="%.2f")
                     cao_o = st.number_input("CaO (%)", value=float(ocr_d.get("cao", 0.0)), format="%.2f")
                     mgo_o = st.number_input("MgO (%)", value=float(ocr_d.get("mgo", 0.0)), format="%.2f")
@@ -590,16 +569,28 @@ if modo == "Evaluar Nueva Muestra":
                     so3_o = st.number_input("SO3 (%)", value=float(ocr_d.get("so3", 0.0)), format="%.2f")
                     na2o_o = st.number_input("Na2O (%)", value=float(ocr_d.get("na2o", 0.0)), format="%.2f")
                     k2o_o = st.number_input("K2O (%)", value=float(ocr_d.get("k2o", 0.0)), format="%.2f")
-                    pb_o = st.number_input("Pb (ppm) - OCR", value=0.0)
-                    cd_o = st.number_input("Cd (ppm) - OCR", value=0.0)
-                    as_o = st.number_input("As (ppm) - OCR", value=0.0)
+                    pb_o = st.number_input("Pb (ppm) - OCR", value=float(ocr_d.get("pb", 0.0)))
+                    cd_o = st.number_input("Cd (ppm) - OCR", value=float(ocr_d.get("cd", 0.0)))
+                    as_o = st.number_input("As (ppm) - OCR", value=float(ocr_d.get("as_ppm", 0.0)))
                     petrografia_o = st.selectbox("Textura Dominante (Petrografía) - OCR", ["Micrítica de grano fino", "Esparítica de grano grueso"])
-                    
+
+                extras_ocr = campos_ensayos_opcionales("ocr_")
+
                 submit_ocr = st.form_submit_button("Calcular LSF y Evaluar Muestra")
                 if submit_ocr:
-                    evaluar_y_mostrar_resultados(
-                        m_id_o, caco3_o, cao_o, mgo_o, sio2_o, fe2o3_o, al2o3_o, so3_o, na2o_o, k2o_o, p2o5_o, pb_o, cd_o, as_o, drx_o, petrografia_o, guardar=True
+                    st.session_state["eval_ocr"] = dict(
+                        muestra_id=m_id_o, caco3=caco3_o, cao=cao_o, mgo=mgo_o, sio2=sio2_o,
+                        fe2o3=fe2o3_o, al2o3=al2o3_o, so3=so3_o, na2o=na2o_o, k2o=k2o_o,
+                        p2o5=p2o5_o, pb=pb_o, cd=cd_o, as_ppm=as_o, drx=drx_o, petrografia=petrografia_o,
+                        fuente=img_up.name if img_up is not None else "", extras=extras_ocr,
                     )
+                    st.session_state["eval_ocr_persistir"] = True
+
+            if st.session_state.get("eval_ocr"):
+                evaluar_y_mostrar_resultados(
+                    **st.session_state["eval_ocr"], guardar=True,
+                    persistir=st.session_state.pop("eval_ocr_persistir", False),
+                )
 
 elif modo == "Consultar Historial":
     st.write("### Base de Datos de Muestras")
@@ -608,11 +599,23 @@ elif modo == "Consultar Historial":
         try:
             df = pd.read_excel(archivo)
             if not df.empty and "ID Muestra" in df.columns:
+                # Vista general de la base con las columnas clave primero
+                cols_clave = [c for c in ("ID Muestra", "Estado Evaluacion", "CaCO3 (%)", "CaO (%)", "MgO (%)", "SiO2 (%)", "LSF", "Fecha Registro", "Archivo Fuente") if c in df.columns]
+                otras = [c for c in df.columns if c not in cols_clave]
+                st.dataframe(df[cols_clave + otras], hide_index=True)
+
+                with open(archivo, "rb") as fx:
+                    st.download_button("⬇️ Descargar base de datos (Excel)", data=fx.read(),
+                                       file_name="BaseDatos_Calizas.xlsx",
+                                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+                st.write("---")
                 muestras_ids = df["ID Muestra"].dropna().unique().tolist()
-                seleccion = st.selectbox("Seleccione ID de Muestra a consultar", muestras_ids)
-                
-                if st.button("Cargar Observaciones"):
-                    # Extraer última evaluación de la muestra seleccionada
+                seleccion = st.selectbox("Ver evaluación completa de una muestra", muestras_ids)
+
+                if seleccion:
+                    # Última evaluación de la muestra seleccionada (sin botón: el
+                    # selectbox dispara el re-render solo)
                     row = df[df["ID Muestra"] == seleccion].iloc[-1]
                     
                     evaluar_y_mostrar_resultados(
