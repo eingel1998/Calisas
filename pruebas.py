@@ -1,15 +1,13 @@
 import pandas as pd
 import os
-
-# Nombre del archivo de tu base de datos
-archivo_excel = "BaseDatos_Calizas.xlsx"
+from calculos_calizas import guardar_en_excel, ARCHIVO_EXCEL as archivo_excel
 
 def inicializar_base_datos():
     """
     Verifica si el archivo Excel existe. Si no existe, crea uno nuevo
     con las columnas predefinidas para el estudio geoquímico.
     """
-    if True: # Forzar recreación con nuevas columnas
+    if not os.path.exists(archivo_excel):
         # Definimos las columnas exactas que requieren las normativas
         columnas = [
             "ID Muestra", 
@@ -45,22 +43,3 @@ def inicializar_base_datos():
 
 # Ejecutar la función
 inicializar_base_datos()
-
-def guardar_en_excel(datos, archivo=archivo_excel):
-    """
-    Recibe un diccionario con los datos de la caliza y los anexa al Excel.
-    Si el archivo no existe, lo crea automáticamente.
-    """
-    df_nuevo = pd.DataFrame([datos])
-    
-    if os.path.exists(archivo):
-        # Leer el Excel existente y concatenar los nuevos datos
-        df_existente = pd.read_excel(archivo)
-        df_final = pd.concat([df_existente, df_nuevo], ignore_index=True)
-    else:
-        # Primer registro, crear la base
-        df_final = df_nuevo
-        
-    # Guardar sin el índice numérico de pandas
-    df_final.to_excel(archivo, index=False)
-    print(f"Los datos han sido guardados en '{archivo}' de manera exitosa.")
