@@ -4,7 +4,7 @@ streamlit
 customtkinter
 Pillow
 pypdf
-
-# Opcionales (usados por app_web.py si están disponibles)
-# google-genai
-# pytesseract
+fastapi
+uvicorn
+pydantic
+python-multipart
