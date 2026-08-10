@@ -53,7 +53,7 @@
 
       <!-- Footer / Credits -->
       <div class="p-6 border-t border-slate-800 text-xs text-slate-500">
-        <p class="font-semibold text-slate-400">Versión 2.0 (Nuxt 3)</p>
+        <p class="font-semibold text-slate-400">Versión 3.0</p>
         <p class="mt-1">Normativas ASTM C150 / NTC 321</p>
       </div>
     </aside>
@@ -67,7 +67,7 @@
           <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">Local DB (SQLite)</span>
         </div>
         <div class="flex items-center gap-4">
-          <span class="text-sm text-slate-500">FastAPI Backend: <b class="text-emerald-600 font-medium">Conectado</b></span>
+          <span class="text-sm text-slate-500">Backend unificado: <b class="text-emerald-600 font-medium">Conectado</b></span>
         </div>
       </header>
 
@@ -945,7 +945,7 @@ async function fetchHistorial() {
   } catch (e) {
     toast.add({
       title: 'Error de Red',
-      description: 'No se pudo conectar con la API de FastAPI. Verifica que el servidor de backend esté corriendo.',
+      description: 'No se pudo conectar con la API. Verifica que el servidor esté corriendo.',
       color: 'rose'
     })
   }
@@ -1166,7 +1166,7 @@ async function executeDeleteSample() {
   if (!sampleToDelete.value) return
   deleteLoading.value = true
   try {
-    await $fetch(`${apiBase}/historial/${sampleToDelete.value}`, {
+    await $fetch(`${apiBase}/historial/${encodeURIComponent(sampleToDelete.value)}`, {
       method: 'DELETE'
     })
     toast.add({ title: 'Muestra Eliminada', description: `La muestra "${sampleToDelete.value}" se borró exitosamente.`, color: 'emerald' })
