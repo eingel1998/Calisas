@@ -32,7 +32,7 @@
       <header class="bg-elevated border-b border-default h-16 flex items-center justify-between px-8 shrink-0">
         <div class="flex items-center gap-2">
           <h2 class="text-xl font-bold text-default capitalize">{{ activeTab }}</h2>
-          <span class="text-xs bg-muted text-muted px-2 py-0.5 rounded-full border border-default">Local DB (SQLite)</span>
+          <span class="text-xs bg-muted text-muted px-2 py-0.5 rounded-full border border-default">SQLite / libSQL</span>
         </div>
         <div class="flex items-center gap-4">
           <span class="text-sm text-muted">Backend unificado: <b class="text-primary font-medium">Conectado</b></span>
@@ -149,9 +149,12 @@ const deleteLoading = ref(false)
 const toast = useToast()
 
 // Lifecycle
-onMounted(() => {
-  if (session.value) fetchHistorial()
-})
+// La sesión se resuelve async: en el primer mount aún está pendiente, así que
+// un chequeo puntual dejaría el dashboard vacío al recargar con sesión activa.
+// Observarla cubre ambos casos (ya presente, o resuelta después).
+watch(session, (actual, previo) => {
+  if (actual && !previo) fetchHistorial()
+}, { immediate: true })
 
 // Methods
 async function fetchHistorial() {

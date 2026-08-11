@@ -4,7 +4,8 @@ import { auth } from '../utils/auth'
 
 export default defineEventHandler(async (event) => {
   const path = event.path || event.node.req.url || ''
-  if (!path.startsWith('/api/')) return
+  // '/api' exacto también cuenta: si no, el health endpoint quedaría sin gate.
+  if (path !== '/api' && !path.startsWith('/api/')) return
   if (path.startsWith('/api/auth/')) return
 
   const session = await auth.api.getSession({ headers: event.headers })
