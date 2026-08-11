@@ -27,9 +27,12 @@
           </div>
 
           <div class="space-y-3 pt-2">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-default">Conversión a Base Seca</span>
-              <USwitch v-model="convertir" color="primary" />
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <span class="text-sm font-medium text-default">Conversión a Base Seca</span>
+                <p class="text-xs text-muted mt-0.5">Desactivado: se usan los valores tal como vienen en el reporte.</p>
+              </div>
+              <USwitch v-model="convertir" color="primary" class="shrink-0" />
             </div>
             <div v-if="convertir">
               <label class="text-xs text-muted block mb-1">LOI Medido (%) <span class="text-dimmed">(Dejar 0 para estimar)</span></label>
@@ -61,57 +64,10 @@
               <label class="block text-sm font-semibold text-default mb-1.5">ID Muestra *</label>
               <UInput v-model="form.datos.muestra_id" required color="primary" />
             </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">CaCO3 (%)</label>
-              <UInput v-model.number="form.datos.caco3" type="number" step="0.01" min="0" max="100" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">CaO (%)</label>
-              <UInput v-model.number="form.datos.cao" type="number" step="0.01" min="0" max="100" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">MgO (%)</label>
-              <UInput v-model.number="form.datos.mgo" type="number" step="0.01" min="0" max="100" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">SiO2 (%)</label>
-              <UInput v-model.number="form.datos.sio2" type="number" step="0.01" min="0" max="100" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">Fe2O3 (%)</label>
-              <UInput v-model.number="form.datos.fe2o3" type="number" step="0.01" min="0" max="100" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">Al2O3 (%)</label>
-              <UInput v-model.number="form.datos.al2o3" type="number" step="0.01" min="0" max="100" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">SO3 (%)</label>
-              <UInput v-model.number="form.datos.so3" type="number" step="0.01" min="0" max="100" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">Na2O (%)</label>
-              <UInput v-model.number="form.datos.na2o" type="number" step="0.01" min="0" max="100" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">K2O (%)</label>
-              <UInput v-model.number="form.datos.k2o" type="number" step="0.01" min="0" max="100" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">P2O5 (%)</label>
-              <UInput v-model.number="form.datos.p2o5" type="number" step="0.01" min="0" max="100" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">Plomo - Pb (ppm)</label>
-              <UInput v-model.number="form.datos.pb" type="number" step="0.01" min="0" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">Cadmio - Cd (ppm)</label>
-              <UInput v-model.number="form.datos.cd" type="number" step="0.01" min="0" color="primary" />
-            </div>
-            <div>
-              <label class="block text-sm font-semibold text-default mb-1.5">Arsénico - As (ppm)</label>
-              <UInput v-model.number="form.datos.as_ppm" type="number" step="0.01" min="0" color="primary" />
+            <div v-for="c in CAMPOS" :key="c.key">
+              <label class="block text-sm font-semibold text-default mb-1.5">{{ c.label }}</label>
+              <UInput v-model.number="form.datos[c.key]" type="number" step="0.01" min="0" :max="c.max" :placeholder="c.opt ? 'No medido' : undefined" color="primary" />
+              <p v-if="origTexto(c)" class="text-xs text-dimmed mt-1">{{ origTexto(c) }}</p>
             </div>
             <div>
               <label class="block text-sm font-semibold text-default mb-1.5">Fase Mineral Dominante (DRX)</label>
@@ -194,14 +150,41 @@ const toast = useToast()
 
 const step = ref(1)
 const file = ref(null)
-const convertir = ref(true)
+const convertir = ref(false)
 const loi_manual = ref(0)
 const form = ref(null)
+
+// hint: false = no mostrar "Reporte:" (caco3 es derivado, no viene en el PDF)
+const CAMPOS = [
+  { key: 'caco3', label: 'CaCO3 (%)', max: 100, hint: false },
+  { key: 'cao', label: 'CaO (%)', max: 100 },
+  { key: 'mgo', label: 'MgO (%)', max: 100 },
+  { key: 'sio2', label: 'SiO2 (%)', max: 100 },
+  { key: 'fe2o3', label: 'Fe2O3 (%)', max: 100 },
+  { key: 'al2o3', label: 'Al2O3 (%)', max: 100 },
+  { key: 'so3', label: 'SO3 (%)', max: 100, opt: true },
+  { key: 'na2o', label: 'Na2O (%)', max: 100, opt: true },
+  { key: 'k2o', label: 'K2O (%)', max: 100 },
+  { key: 'p2o5', label: 'P2O5 (%)', max: 100, opt: true },
+  { key: 'pb', label: 'Plomo - Pb (ppm)', opt: true },
+  { key: 'cd', label: 'Cadmio - Cd (ppm)', opt: true },
+  { key: 'as_ppm', label: 'Arsénico - As (ppm)', opt: true },
+]
+
+// Valor tal como viene en el reporte, para que el usuario pueda cotejar 1:1
+// cuando la conversión a base seca cambió los números.
+function origTexto(c) {
+  if (c.hint === false) return ''
+  const o = form.value?.originales?.[c.key]
+  if (o === null || o === undefined) return ''
+  if (Number(o) === Number(form.value?.datos?.[c.key])) return ''
+  return `Reporte: ${o}`
+}
 
 function resetLocal() {
   step.value = 1
   file.value = null
-  convertir.value = true
+  convertir.value = false
   loi_manual.value = 0
   form.value = null
 }
@@ -235,8 +218,14 @@ function extract() {
 
 watch(() => props.ocrResult, (val) => {
   if (val && val.datos) {
+    const datos = { ...val.datos, drx: val.datos.drx || 'Calcita', petrografia: val.datos.petrografia || 'Micrítica de grano fino' }
+    // null = no medido → campo vacío (no 0: un 0 se guardaría como medición real)
+    for (const k of ['so3', 'na2o', 'p2o5', 'pb', 'cd', 'as_ppm']) {
+      if (datos[k] === null || datos[k] === undefined) datos[k] = ''
+    }
     form.value = {
-      datos: { ...val.datos, drx: val.datos.drx || 'Calcita', petrografia: val.datos.petrografia || 'Micrítica de grano fino' },
+      datos,
+      originales: val.datos_originales || null,
       extras: { ...val.extras },
       avisos: val.avisos || []
     }
@@ -250,11 +239,14 @@ function save() {
     return
   }
   const d = form.value.datos
+  // campo vacío = no medido → null (un 0 falso haría "cumplir" límites de metales pesados)
+  const opt = (v) => (v === '' || v === null || v === undefined ? null : v)
   emit('save', {
     muestra_id: d.muestra_id,
     caco3: d.caco3, cao: d.cao, mgo: d.mgo, sio2: d.sio2, fe2o3: d.fe2o3, al2o3: d.al2o3,
-    so3: d.so3, na2o: d.na2o, k2o: d.k2o, p2o5: d.p2o5, pb: d.pb, cd: d.cd, as_ppm: d.as_ppm,
+    so3: opt(d.so3), na2o: opt(d.na2o), k2o: d.k2o, p2o5: opt(d.p2o5), pb: opt(d.pb), cd: opt(d.cd), as_ppm: opt(d.as_ppm),
     drx: d.drx, petrografia: d.petrografia,
+    elementos: d.elementos ?? [],
     extras: { ...form.value.extras },
     archivo_fuente: file.value?.name || 'PDF Upload'
   })

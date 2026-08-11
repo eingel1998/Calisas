@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   parsear_reporte_xrf, convertir_base_seca, es_base_calcinada,
-  validar_extraccion, calcular_evaluacion,
+  validar_extraccion, calcular_evaluacion, estimar_metales_pesados,
 } from './calculos'
 
 // Fragmento real de un reporte Omnian (M10)
@@ -26,7 +26,9 @@ describe('parseo XRF', () => {
     expect(d.mgo).toBe(0.302)
     expect(d.sio2).toBe(1.476)
     expect(d.pb).toBe(23.8)
-    expect(d.cd).toBe(0.0)
+    // Cd no viene en el reporte: debe quedar "no medido", jamás 0
+    expect(d.cd).toBeNull()
+    expect(d.so3).toBeNull()
   })
   it('texto sin tabla retorna null', () => {
     expect(parsear_reporte_xrf('texto sin tabla alguna')).toBeNull()
@@ -65,14 +67,26 @@ describe('validación de extracción', () => {
 
 // Helper: construye la llamada posicional de calcular_evaluacion con los 13 campos
 // en el orden de la firma: (caco3, cao, mgo, sio2, fe2o3, al2o3, so3, na2o, k2o, p2o5, pb, cd, as_ppm)
-function evalCon(datos: Record<string, number>, extras?: Record<string, number>) {
-  const args: [number, number, number, number, number, number, number, number, number, number, number, number, number] = [
-    datos.caco3 ?? 0, datos.cao ?? 0, datos.mgo ?? 0, datos.sio2 ?? 0, datos.fe2o3 ?? 0,
-    datos.al2o3 ?? 0, datos.so3 ?? 0, datos.na2o ?? 0, datos.k2o ?? 0, datos.p2o5 ?? 0,
-    datos.pb ?? 0, datos.cd ?? 0, datos.as_ppm ?? 0,
-  ]
-  return calcular_evaluacion(...args, 'Micrítica de grano fino', true, 0, 0, 0, extras ?? null)
+function evalCon(
+  datos: Record<string, number | null | undefined>,
+  extras?: Record<string, number>,
+  elementos: { nombre: string; conc: number; unidad: string }[] = [],
+) {
+  const num = (v: number | null | undefined) => v ?? 0
+  const opt = (v: number | null | undefined) => (v === null || v === undefined ? null : v)
+  return calcular_evaluacion(
+    num(datos.caco3), num(datos.cao), num(datos.mgo), num(datos.sio2), num(datos.fe2o3),
+    num(datos.al2o3), opt(datos.so3), opt(datos.na2o), num(datos.k2o), opt(datos.p2o5),
+    opt(datos.pb), opt(datos.cd), opt(datos.as_ppm),
+    'Micrítica de grano fino', true, 0, 0, 0, extras ?? null, elementos,
+  )
 }
+
+// reporte con trazas bajas: pasa el límite de metales pesados totales (<20 ppm)
+const TRAZAS_LIMPIAS = [
+  { nombre: 'Pb', conc: 1.0, unidad: 'ppm' },
+  { nombre: 'As', conc: 1.0, unidad: 'ppm' },
+]
 
 describe('evaluación completa', () => {
   const d = parsear_reporte_xrf(TEXTO_XRF)!
@@ -120,11 +134,172 @@ describe('evaluación completa', () => {
   })
 })
 
+// Guard del bug de falso "Apto": un analito NO medido (null) nunca debe
+// contar como 0 y "cumplir" un límite de pureza o metales pesados.
+describe('analitos no medidos → Requiere ensayos, no Apto', () => {
+  const base = { caco3: 99.2, cao: 55.0, mgo: 0.3, sio2: 0.5, fe2o3: 0.02, al2o3: 0.3, k2o: 0.1 }
+
+  it('Cd null deja alimentaria/farmacéutica en Requiere ensayos', () => {
+    const r = evalCon({ ...base, pb: 1.0, cd: null, as_ppm: 1.0 }, undefined, TRAZAS_LIMPIAS)
+    const dic = Object.fromEntries(r.dictamenes.map((p) => [p.nombre, p]))
+    expect(dic['Industria alimentaria'].estado).toBe('Requiere ensayos')
+    expect(dic['Industria alimentaria'].razon).toContain('Cd')
+    expect(dic['Industria farmacéutica'].estado).toBe('Requiere ensayos')
+  })
+
+  it('con Cd medido bajo el límite pasa a Apto', () => {
+    const r = evalCon({ ...base, pb: 1.0, cd: 0.4, as_ppm: 1.0 }, undefined, TRAZAS_LIMPIAS)
+    const dic = Object.fromEntries(r.dictamenes.map((p) => [p.nombre, p]))
+    expect(dic['Industria alimentaria'].estado).toBe('Apto')
+  })
+
+  it('SO3 y P2O5 null dejan siderúrgica en Requiere ensayos', () => {
+    const r = evalCon({ ...base, so3: null, p2o5: null })
+    const dic = Object.fromEntries(r.dictamenes.map((p) => [p.nombre, p]))
+    expect(dic['Industria siderúrgica'].estado).toBe('Requiere ensayos')
+  })
+
+  it('resultado expone null, no 0, para lo no medido', () => {
+    const r = evalCon({ ...base, cd: null, so3: null })
+    expect(r.cd).toBeNull()
+    expect(r.so3).toBeNull()
+  })
+})
+
 // Guard: la firma posicional debe mantenerse estable (compatibilidad API)
 describe('firma de calcular_evaluacion (compatibilidad)', () => {
   it('acepta llamada posicional completa', () => {
     const r = calcular_evaluacion(94.8, 54.1, 0.8, 6.4, 1.9, 2.8, 2.4, 0.1, 0.2)
     expect(r.estado_eval).toBeDefined()
     expect(r.dictamenes).toHaveLength(17)
+  })
+})
+
+// El reporte del XRF viene calcinado (óxidos a 100% sin LOI). El motor debe
+// reconstruir el CO2 antes de contrastar los criterios de pureza; si no lo
+// hiciera, CaO ~97% daría CaCO3 >100%, saturaría en el tope y toda caliza
+// limpia pasaría hasta los perfiles de máxima pureza.
+describe('base calcinada: se evalúa sobre base carbonato', () => {
+  const CALCINADO = `M10 Sample ident
+Compound MgO Al2O3 SiO2 K2O CaO Fe2O3
+Conc 0,302 0,333 1,476 0,131 97,501 0,198
+Unit % % % % % %`
+
+  it('CaCO3 se deriva en base carbonato, no satura', () => {
+    const d = parsear_reporte_xrf(CALCINADO)!
+    expect(d.cao).toBe(97.501)           // se conserva lo reportado
+    expect(d.caco3).toBeCloseTo(98.4, 1) // y CaCO3 real, no 100
+  })
+
+  it('el dictamen usa la base carbonato y sigue discriminando', () => {
+    const d = parsear_reporte_xrf(CALCINADO)!
+    const r = evalCon({ ...d, pb: 1, cd: 0.1, as_ppm: 1, so3: 0.1, p2o5: 0.01 })
+    expect(r.base_calcinada).toBe(true)
+    expect(r.factor_base).toBeCloseTo(0.5655, 3)
+    expect(r.base_evaluacion.cao).toBeCloseTo(55.13, 1)
+    expect(r.base_evaluacion.caco3).toBeCloseTo(98.4, 1)
+
+    const dic = Object.fromEntries(r.dictamenes.map((p) => [p.nombre, p]))
+    // 98.4% no alcanza los umbrales de grado alimentario (>98.5) ni farmacéutico (>99)
+    expect(dic['Industria farmacéutica'].estado).toBe('No Apto')
+    expect(dic['Industria alimentaria'].estado).toBe('No Apto')
+    // pero sí los de clinker y cal viva
+    expect(dic['Industria cementera'].estado).toBe('Apto')
+    expect(dic['Producción de cal viva'].estado).toBe('Apto')
+  })
+
+  it('los módulos cementeros se calculan sobre lo reportado (loss-free)', () => {
+    const d = parsear_reporte_xrf(CALCINADO)!
+    const r = evalCon(d)
+    // LSF/SM/AM son razones: invariantes al factor de base. Se calculan sobre
+    // los óxidos reportados, que es la práctica en cemento (base loss-free).
+    const [cao, sio2, al2o3, fe2o3] = [97.5, 1.48, 0.33, 0.2] // tras safeFloat
+    expect(r.lsf).toBeCloseTo(cao / (2.8 * sio2 + 1.2 * al2o3 + 0.65 * fe2o3), 3)
+    expect(r.sm).toBeCloseTo(sio2 / (al2o3 + fe2o3), 3)
+  })
+
+  it('el veredicto ya no lo decide el LOI del cemento terminado', () => {
+    const d = parsear_reporte_xrf(CALCINADO)!
+    const r = evalCon(d)
+    // una caliza tiene LOI ~43% por su CO2: antes reprobaba siempre
+    expect(r.loi).toBeGreaterThan(40)
+    expect(r.estado_eval).toBe('APTO')
+    expect(r.errores_norma).toHaveLength(0)
+  })
+})
+
+// El switch "Conversión a Base Seca" convierte antes de evaluar; con el switch
+// apagado el motor lo hace internamente. Ambas rutas deben dar el mismo dictamen.
+describe('invariante: pre-convertir o dejar que el motor convierta', () => {
+  const d = parsear_reporte_xrf(TEXTO_XRF)!
+  const crudo = evalCon({ ...d, caco3: 0 })
+  const preconvertido = evalCon({ ...convertir_base_seca(d), caco3: 0 } as Record<string, number | null>)
+
+  it('mismo CaCO3 de evaluación', () => {
+    expect(crudo.base_evaluacion.caco3).toBeCloseTo(preconvertido.base_evaluacion.caco3, 1)
+  })
+  it('mismos 17 dictámenes', () => {
+    expect(crudo.dictamenes.map((p) => p.estado)).toEqual(preconvertido.dictamenes.map((p) => p.estado))
+  })
+  it('mismo veredicto', () => {
+    expect(crudo.estado_eval).toBe(preconvertido.estado_eval)
+  })
+  it('solo el crudo se marca como base calcinada', () => {
+    expect(crudo.base_calcinada).toBe(true)
+    expect(preconvertido.base_calcinada).toBe(false)
+  })
+})
+
+// Los pendientes normativos se resuelven con estimación + salvedad, no
+// bloqueando el dictamen: el usuario ve el resultado y por qué no es firme.
+describe('confianza y salvedades del dictamen', () => {
+  const puro = { caco3: 0, cao: 55.6, mgo: 0.1, sio2: 0.1, fe2o3: 0.01, al2o3: 0.05, k2o: 0.01 }
+  const trazas = [
+    { nombre: 'Pb', conc: 1.0, unidad: 'ppm' },
+    { nombre: 'Sn', conc: 110.0, unidad: 'ppm' },
+    { nombre: 'Te', conc: 119.0, unidad: 'ppm' },
+  ]
+
+  it('estima metales pesados totales desde el reporte XRF', () => {
+    expect(estimar_metales_pesados(trazas)).toBeCloseTo(230, 0)
+    expect(estimar_metales_pesados(trazas, 0.5655)).toBeCloseTo(130.1, 0)
+    // sin trazas relevantes no se inventa un valor
+    expect(estimar_metales_pesados([{ nombre: 'Ti', conc: 95, unidad: 'ppm' }])).toBeNull()
+  })
+
+  it('Sn y Te altos reprueban por metales pesados aunque Pb esté bien', () => {
+    const r = evalCon({ ...puro, pb: 1, cd: 0.1, as_ppm: 1 }, undefined, trazas)
+    const dic = Object.fromEntries(r.dictamenes.map((p) => [p.nombre, p]))
+    expect(dic['Industria alimentaria'].estado).toBe('No Apto')
+    expect(dic['Industria alimentaria'].razon).toContain('Metales pesados')
+  })
+
+  it('alimentaria y farmacéutica quedan marcadas como preliminares (falta ICP-MS)', () => {
+    const r = evalCon({ ...puro, pb: 1, cd: 0.1, as_ppm: 1 }, undefined, [{ nombre: 'Pb', conc: 1, unidad: 'ppm' }])
+    const dic = Object.fromEntries(r.dictamenes.map((p) => [p.nombre, p]))
+    expect(dic['Industria alimentaria'].confianza).toBe('Preliminar')
+    expect(dic['Industria alimentaria'].salvedades.join(' ')).toContain('ICP-MS')
+    expect(dic['Industria farmacéutica'].confianza).toBe('Preliminar')
+  })
+
+  it('cal agrícola es Media: el PN va estimado desde CaCO3 equivalente', () => {
+    const r = evalCon({ ...puro, pb: 1, cd: 0.1, as_ppm: 1 })
+    const dic = Object.fromEntries(r.dictamenes.map((p) => [p.nombre, p]))
+    expect(dic['Cal agrícola'].confianza).toBe('Media')
+    expect(dic['Cal agrícola'].salvedades.join(' ')).toContain('NTC 5163')
+  })
+
+  it('con el PN medido la confianza sube a Alta', () => {
+    const r = evalCon({ ...puro, pb: 1, cd: 0.1, as_ppm: 1 }, { pn: 92 })
+    const dic = Object.fromEntries(r.dictamenes.map((p) => [p.nombre, p]))
+    expect(dic['Cal agrícola'].confianza).toBe('Alta')
+    expect(dic['Cal agrícola'].salvedades).toHaveLength(0)
+  })
+
+  it('los perfiles con química directa mantienen confianza Alta', () => {
+    const r = evalCon({ ...puro, pb: 1, cd: 0.1, as_ppm: 1 })
+    const dic = Object.fromEntries(r.dictamenes.map((p) => [p.nombre, p]))
+    expect(dic['Industria cementera'].confianza).toBe('Alta')
+    expect(dic['Industria del vidrio'].confianza).toBe('Alta')
   })
 })

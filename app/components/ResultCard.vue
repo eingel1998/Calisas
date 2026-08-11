@@ -26,7 +26,8 @@
       <UTabs :items="[
         { label: '📊 Química y Módulos', slot: 'quimica' },
         { label: '🔥 Clinker (Bogue)', slot: 'clinker' },
-        { label: '🏭 17 Perfiles de Uso', slot: 'perfiles' }
+        { label: '🏭 17 Perfiles de Uso', slot: 'perfiles' },
+        { label: '🧠 Interpretación IA', slot: 'ia' }
       ]">
         <!-- Química y Módulos Tab -->
         <template #quimica>
@@ -73,6 +74,34 @@
               </div>
             </div>
 
+            <!-- Base de cálculo del dictamen -->
+            <div v-if="sample.base_calcinada" class="p-3 bg-info/10 border border-info/20 rounded-lg text-xs text-default space-y-1">
+              <p>
+                <b>Base de cálculo:</b> el reporte XRF viene normalizado a 100% sin LOI (base calcinada), así que los valores mostrados arriba son los del reporte.
+                Los criterios normativos se contrastan sobre <b>base carbonato</b> (factor {{ sample.factor_base }}, LOI {{ sample.loi?.toFixed(2) }}%).
+              </p>
+              <p v-if="sample.base_evaluacion" class="text-muted">
+                Evaluado con: CaCO3 {{ sample.base_evaluacion.caco3 }}% · CaO {{ sample.base_evaluacion.cao }}% · MgO {{ sample.base_evaluacion.mgo }}% · SiO2 {{ sample.base_evaluacion.sio2 }}% · Fe2O3 {{ sample.base_evaluacion.fe2o3 }}%
+              </p>
+            </div>
+
+            <!-- Reporte XRF completo -->
+            <div v-if="elementos.length" class="border-t border-muted pt-4 space-y-3">
+              <h4 class="font-bold text-default">Reporte XRF completo ({{ elementos.length }} compuestos)</h4>
+              <p class="text-xs text-muted">Valores tal como los emitió el equipo. Los perfiles industriales solo evalúan los que tienen criterio normativo; el resto queda registrado para trazabilidad.</p>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="e in elementos"
+                  :key="e.nombre"
+                  class="text-xs px-2 py-1 rounded border"
+                  :class="EVALUADOS.includes(e.nombre) ? 'bg-primary/10 border-primary/30 text-primary font-semibold' : 'bg-muted border-muted text-muted'"
+                >
+                  {{ e.nombre }} {{ e.conc }} {{ e.unidad }}
+                </span>
+              </div>
+              <p class="text-xs text-dimmed">Resaltados = usados en el dictamen.</p>
+            </div>
+
             <!-- Geological Info -->
             <div class="border-t border-muted pt-4 space-y-3">
               <h4 class="font-bold text-default">Interpretación Geoquímica (Calizas del Cesar)</h4>
@@ -96,6 +125,10 @@
         <template #clinker>
           <div class="py-4 space-y-6">
             <p class="text-sm text-muted">Composición potencial de fases minerales del cemento obtenida mediante ecuaciones estequiométricas de Bogue:</p>
+
+            <div class="p-3 bg-warning/10 border-l-4 border-warning rounded text-xs text-default">
+              <b>Estimación indicativa.</b> Bogue describe la composición de un <b>clinker</b>, no de una caliza. Una caliza pura no se clinkeriza sola: necesita aporte de sílice y arcilla, así que estos valores no suman 100% ni representan un cemento real. Úselos para comparar el aporte relativo de la caliza entre muestras, no como composición del producto.
+            </div>
 
             <div class="space-y-4">
               <!-- Alita -->
@@ -163,15 +196,51 @@
                     <p class="text-xs text-default mt-2 italic">“{{ p.razon }}”</p>
                     <p class="text-3xs text-dimmed mt-1">Norma reguladora: {{ p.norma }}</p>
                   </div>
-                  <UBadge
-                    :color="p.estado === 'Apto' ? 'success' : p.estado === 'No Apto' ? 'error' : 'warning'"
-                    variant="subtle"
-                  >
-                    {{ p.estado }}
-                  </UBadge>
+                  <div class="flex flex-col items-end gap-1 shrink-0">
+                    <UBadge
+                      :color="p.estado === 'Apto' ? 'success' : p.estado === 'No Apto' ? 'error' : 'warning'"
+                      variant="subtle"
+                    >
+                      {{ p.estado }}
+                    </UBadge>
+                    <UBadge v-if="p.confianza && p.confianza !== 'Alta'" color="neutral" variant="outline" size="xs">
+                      Confianza: {{ p.confianza }}
+                    </UBadge>
+                  </div>
+                </div>
+                <div v-if="p.salvedades?.length" class="mt-3 pt-3 border-t border-muted space-y-1.5">
+                  <p v-for="s in p.salvedades" :key="s" class="text-xs text-muted flex gap-1.5">
+                    <span class="shrink-0">⚠️</span><span>{{ s }}</span>
+                  </p>
                 </div>
               </div>
             </div>
+          </div>
+        </template>
+
+        <!-- AI Interpretation Tab -->
+        <template #ia>
+          <div class="py-4 space-y-4">
+            <p class="text-sm text-muted">
+              Redacción en lenguaje natural sobre los resultados y dictámenes ya calculados. La IA explica; los valores y el dictamen normativo son deterministas y no cambian.
+            </p>
+
+            <div v-if="iaTexto" class="p-4 bg-muted border border-muted rounded-xl text-sm text-default leading-relaxed whitespace-pre-wrap">{{ iaTexto }}</div>
+            <p v-if="iaTexto && iaFecha" class="text-xs text-dimmed">Guardada el {{ iaFecha }} — se reutiliza sin volver a consultar la IA.</p>
+
+            <div v-if="iaError" class="p-3 bg-error/10 border border-error/30 text-error rounded text-sm">
+              {{ iaError }}
+            </div>
+
+            <UButton
+              color="primary"
+              :variant="iaTexto ? 'soft' : 'solid'"
+              icon="i-heroicons-sparkles"
+              :loading="iaLoading"
+              @click="generarInterpretacion"
+            >
+              {{ iaTexto ? 'Regenerar interpretación' : 'Generar interpretación' }}
+            </UButton>
           </div>
         </template>
       </UTabs>
@@ -180,7 +249,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { getGeologyWarnings } from '~/utils/geologia'
 
 const props = defineProps({
@@ -188,4 +257,34 @@ const props = defineProps({
 })
 
 const geologyWarnings = computed(() => getGeologyWarnings(props.sample))
+
+const EVALUADOS = ['CaO', 'MgO', 'SiO2', 'Fe2O3', 'Al2O3', 'SO3', 'Na2O', 'K2O', 'P2O5', 'Pb', 'Cd', 'As']
+const elementos = computed(() => props.sample?.elementos ?? [])
+
+// La interpretación vive en la BD: al abrir una muestra se muestra la guardada
+// y solo se llama a la IA si no existe o si el usuario pide regenerarla.
+const iaTexto = ref(props.sample?.interpretacion_ia || '')
+const iaFecha = ref(props.sample?.interpretacion_fecha || '')
+const iaError = ref('')
+const iaLoading = ref(false)
+
+watch(() => props.sample?.id_muestra, () => {
+  iaTexto.value = props.sample?.interpretacion_ia || ''
+  iaFecha.value = props.sample?.interpretacion_fecha || ''
+  iaError.value = ''
+})
+
+async function generarInterpretacion() {
+  iaLoading.value = true
+  iaError.value = ''
+  try {
+    const res = await $fetch('/api/interpretar', { method: 'POST', body: { muestra: props.sample } })
+    iaTexto.value = res.interpretacion
+    iaFecha.value = new Date().toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+  } catch (e) {
+    iaError.value = e?.data?.statusMessage || e?.statusMessage || 'No se pudo generar la interpretación.'
+  } finally {
+    iaLoading.value = false
+  }
+}
 </script>
