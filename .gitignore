@@ -18,4 +18,4 @@ node_modules/
 .nuxt/
 .output/
 .data/
-dist/
+dist/bun.lock
