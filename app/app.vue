@@ -1,6 +1,29 @@
 <template>
   <UApp>
-    <div class="min-h-screen bg-default text-default flex">
+    <div v-if="sessionPending" class="min-h-screen bg-default flex items-center justify-center">
+      <UIcon name="i-lucide-loader-2" class="animate-spin size-8 text-primary" />
+    </div>
+
+    <div v-else-if="!session" class="min-h-screen bg-default flex items-center justify-center px-4">
+      <div class="w-full max-w-sm bg-elevated border border-default rounded-xl p-8 shadow-lg">
+        <div class="flex items-center gap-2 mb-6">
+          <UIcon name="i-lucide-gem" class="size-6 text-primary" />
+          <h1 class="text-lg font-bold text-default">Calizas</h1>
+        </div>
+        <form class="flex flex-col gap-4" @submit.prevent="handleLogin">
+          <UFormField label="Correo">
+            <UInput v-model="loginForm.email" type="email" placeholder="correo@ejemplo.com" class="w-full" autocomplete="username" required />
+          </UFormField>
+          <UFormField label="Contraseña">
+            <UInput v-model="loginForm.password" type="password" placeholder="••••••••" class="w-full" autocomplete="current-password" required />
+          </UFormField>
+          <p v-if="loginError" class="text-sm text-error">{{ loginError }}</p>
+          <UButton type="submit" block color="primary" :loading="loginLoading">Ingresar</UButton>
+        </form>
+      </div>
+    </div>
+
+    <div v-else class="min-h-screen bg-default text-default flex">
     <SidebarNav :active-tab="activeTab" :sub-analisis="subAnalisis" @navigate="onNavigate" />
 
     <!-- Main Content Area -->
@@ -13,6 +36,7 @@
         </div>
         <div class="flex items-center gap-4">
           <span class="text-sm text-muted">Backend unificado: <b class="text-primary font-medium">Conectado</b></span>
+          <UButton variant="ghost" color="neutral" icon="i-lucide-log-out" size="sm" @click="handleLogout">Salir</UButton>
         </div>
       </header>
 
@@ -69,9 +93,36 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { authClient } from '~/utils/auth-client'
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
+
+// Auth gate: SPA sin páginas, el dashboard solo se monta con sesión válida.
+const { data: session, isPending: sessionPending } = authClient.useSession()
+const loginForm = ref({ email: '', password: '' })
+const loginLoading = ref(false)
+const loginError = ref('')
+
+async function handleLogin() {
+  loginLoading.value = true
+  loginError.value = ''
+  const { error } = await authClient.signIn.email({
+    email: loginForm.value.email,
+    password: loginForm.value.password
+  })
+  if (error) {
+    loginError.value = error.message || 'Credenciales inválidas.'
+  } else {
+    await fetchHistorial()
+  }
+  loginLoading.value = false
+}
+
+async function handleLogout() {
+  await authClient.signOut()
+  samples.value = []
+}
 
 const activeTab = ref('dashboard')
 const subAnalisis = ref('geo')
@@ -99,7 +150,7 @@ const toast = useToast()
 
 // Lifecycle
 onMounted(() => {
-  fetchHistorial()
+  if (session.value) fetchHistorial()
 })
 
 // Methods
