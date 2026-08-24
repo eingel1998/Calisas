@@ -92,14 +92,19 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { authClient } from '~/utils/auth-client'
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
 
 // Auth gate: SPA sin páginas, el dashboard solo se monta con sesión válida.
-const { data: session, isPending: sessionPending } = authClient.useSession()
+// useSession() devuelve un Ref de Vue cuyo .value es {data, isPending, error...}.
+// Desestructurarlo directo daría undefined (se estaría desestructurando el Ref,
+// no su contenido) y la vista jamás cambiaría tras iniciar sesión.
+const sessionState = authClient.useSession()
+const session = computed(() => sessionState.value?.data ?? null)
+const sessionPending = computed(() => sessionState.value?.isPending ?? true)
 const loginForm = ref({ email: '', password: '' })
 const loginLoading = ref(false)
 const loginError = ref('')
