@@ -4,7 +4,6 @@ import { error_db } from './db'
 
 export const MAX_EVIDENCIA_BYTES = 10 * 1024 * 1024
 GlobalWorkerOptions.workerSrc = resolve(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs')
-
 export async function validar_pdf_evidencia(bytes: Uint8Array): Promise<void> {
   if (bytes.length > MAX_EVIDENCIA_BYTES) throw error_db(413, 'El PDF supera 10 MiB')
   if (!bytes.length || Buffer.from(bytes.subarray(0, 5)).toString() !== '%PDF-') throw error_db(400, 'Archivo PDF inválido')

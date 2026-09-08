@@ -1,3 +1,5 @@
+import { resolve } from 'node:path'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2024-04-03',
@@ -19,5 +21,10 @@ export default defineNuxtConfig({
   },
   future: {
     compatibilityVersion: 4,
+  },
+  nitro: {
+    externals: {
+      traceInclude: [resolve(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs')]
+    }
   }
 })

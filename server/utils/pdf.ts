@@ -3,10 +3,6 @@
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { resolve } from 'node:path'
 
-// Nitro no copia pdf.worker.mjs al bundle (import dinámico del fake worker no se tracea);
-// apuntamos workerSrc al worker real del node_modules del repo (presente en dev y prod-local).
-// El legacy build pre-setea workerSrc (a su propio path inexistente en .output), por eso se fuerza siempre.
-// ponytail: worker externo fijo vía cwd; migrar a `createRequire` si se despliega .output standalone.
 GlobalWorkerOptions.workerSrc = resolve(process.cwd(), 'node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs')
 
 export async function extraer_texto_pdf(bytes: Buffer | Uint8Array): Promise<string> {
