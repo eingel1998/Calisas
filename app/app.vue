@@ -1,5 +1,18 @@
 <template>
-  <UApp><div class="min-h-screen bg-slate-50 text-slate-800 flex">
+  <UApp>
+    <div v-if="sessionPending" class="min-h-screen bg-slate-50 flex items-center justify-center">
+      <UIcon name="i-lucide-loader-2" class="animate-spin size-8 text-emerald-600" />
+    </div>
+    <div v-else-if="!session" class="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+      <form class="w-full max-w-sm bg-white border border-slate-200 rounded-xl p-8 shadow-lg space-y-4" @submit.prevent="handleLogin">
+        <h1 class="text-lg font-bold text-slate-800">Ingresar a Calizas</h1>
+        <UFormField label="Correo"><UInput v-model="loginForm.email" type="email" autocomplete="username" required class="w-full" /></UFormField>
+        <UFormField label="Contraseña"><UInput v-model="loginForm.password" type="password" autocomplete="current-password" required class="w-full" /></UFormField>
+        <p v-if="loginError" class="text-sm text-rose-600">{{ loginError }}</p>
+        <UButton type="submit" block color="success" :loading="loginLoading">Ingresar</UButton>
+      </form>
+    </div>
+    <div v-else class="min-h-screen bg-slate-50 text-slate-800 flex">
     <!-- Sidebar -->
     <aside class="w-72 bg-slate-900 text-white flex flex-col justify-between shrink-0">
       <div>
@@ -68,6 +81,7 @@
         </div>
         <div class="flex items-center gap-4">
           <span class="text-sm text-slate-500">Evaluación de usos industriales</span>
+          <UButton variant="ghost" color="neutral" icon="i-lucide-log-out" size="sm" @click="handleLogout">Salir</UButton>
         </div>
       </header>
 
@@ -753,14 +767,35 @@
 
     <!-- NOTIFICATIONS PROVIDER FOR TOASTS -->
 
-  </div></UApp>
+    </div>
+  </UApp>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { authClient } from '~/utils/auth-client'
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
+const sessionState = authClient.useSession()
+const session = computed(() => sessionState.value?.data ?? null)
+const sessionPending = computed(() => sessionState.value?.isPending ?? true)
+const loginForm = ref({ email: '', password: '' })
+const loginLoading = ref(false)
+const loginError = ref('')
+
+async function handleLogin() {
+  loginLoading.value = true
+  loginError.value = ''
+  const { error } = await authClient.signIn.email(loginForm.value)
+  if (error) loginError.value = error.message || 'Credenciales inválidas.'
+  loginLoading.value = false
+}
+
+async function handleLogout() {
+  await authClient.signOut()
+  samples.value = []
+}
 
 const activeTab = ref('dashboard')
 const subTab = ref('pdf')
@@ -851,10 +886,9 @@ const filteredSamples = computed(() => {
   })
 })
 
-// Lifecycle
-onMounted(() => {
-  fetchHistorial()
-})
+watch(session, (actual, previo) => {
+  if (actual && !previo) fetchHistorial()
+}, { immediate: true })
 
 // Methods
 async function fetchHistorial() {

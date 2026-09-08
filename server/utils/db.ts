@@ -63,7 +63,7 @@ function getClient(): Client {
 export async function ensureSchema(db: Client = getClient()): Promise<void> {
   await db.execute(SCHEMA_SQL)
   const columns = await db.execute('PRAGMA table_info(muestras)')
-  for (const [name, type] of [['contexto_json', 'TEXT'], ['version_evaluacion', 'INTEGER']]) {
+  for (const [name, type] of [['contexto_json', 'TEXT'], ['version_evaluacion', 'INTEGER'], ['interpretacion_ia', 'TEXT'], ['interpretacion_fecha', 'TEXT']]) {
     if (!columns.rows.some(row => row.name === name)) await db.execute(`ALTER TABLE muestras ADD COLUMN ${name} ${type}`)
   }
   await db.execute(`CREATE TABLE IF NOT EXISTS evidencias (
@@ -149,4 +149,11 @@ export async function obtener_evidencia_db(id: string, db: Client = getClient())
   const res = await db.execute({ sql: 'SELECT nombre, tipo, contenido, fecha FROM evidencias WHERE id_muestra = ?', args: [id] })
   if (!res.rows.length) throw error_db(404, 'No hay evidencia para esta muestra')
   return res.rows[0]!
+}
+
+export async function guardar_interpretacion_db(id: string, texto: string, db: Client = getClient()): Promise<void> {
+  await db.execute({
+    sql: 'UPDATE muestras SET interpretacion_ia = ?, interpretacion_fecha = ? WHERE id_muestra = ?',
+    args: [texto, new Date().toISOString(), id],
+  })
 }

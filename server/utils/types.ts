@@ -2,6 +2,7 @@ export type Numero = number | null
 export type BaseAnalitica = 'desconocida' | 'seca' | 'calcinada'
 export type Procedencia = 'medido' | 'calculado' | 'estimado'
 export interface DatoOriginal { compuesto: string; texto: string; unidad: string; valor: Numero }
+export interface ElementoXRF { nombre: string; conc: Numero; unidad: string }
 export interface ContextoAnalisis {
   base: BaseAnalitica
   base_trazas: BaseAnalitica
@@ -20,7 +21,7 @@ export interface EnsayosOpcionales {
   cao_disponible?: Numero; cao_reactivo?: Numero; resistencia?: Numero; absorcion?: Numero
 }
 export type Composicion = Record<'caco3' | 'cao' | 'mgo' | 'sio2' | 'fe2o3' | 'al2o3' | 'so3' | 'na2o' | 'k2o' | 'p2o5' | 'pb' | 'cd' | 'as_ppm', Numero>
-export type DatosXRF = Composicion & { muestra_id: string; originales: DatoOriginal[]; metadatos: Record<string, string>; texto_reporte: string }
+export type DatosXRF = Composicion & { muestra_id: string; originales: DatoOriginal[]; elementos: ElementoXRF[]; metadatos: Record<string, string>; texto_reporte: string }
 export interface CriterioDictamen {
   campo: string; etiqueta: string; valor: Numero; unidad: string
   op: '>' | '<'; limite: number; estado: 'Cumple' | 'Incumple' | 'Pendiente'

@@ -70,7 +70,9 @@ export function parsear_reporte_xrf(texto: string): DatosXRF | null {
   const idx=raw.indexOf('Sample ident')
   const inline = raw.find(l=>/\s+Sample ident$/.test(l))
   const muestra_id = inline ? inline.replace(/\s+Sample ident$/, '').trim() : idx>0 && !raw[idx-1].includes('Sample results') ? raw[idx-1] : ''
-  return {...datos,muestra_id,originales:[...comp.values()],metadatos:metadatos_reporte(texto),texto_reporte:texto}
+  const originales=[...comp.values()]
+  const elementos=originales.map(d=>({nombre:d.compuesto,conc:d.valor,unidad:d.unidad}))
+  return {...datos,muestra_id,originales,elementos,metadatos:metadatos_reporte(texto),texto_reporte:texto}
 }
 
 // Los reportes normalizados del laboratorio suman cerca de 100 y requieren llevarse a base seca.
