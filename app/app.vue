@@ -13,63 +13,11 @@
       </form>
     </div>
     <div v-else class="min-h-screen bg-slate-50 text-slate-800 flex">
-    <!-- Sidebar -->
-    <aside class="w-72 bg-slate-900 text-white flex flex-col justify-between shrink-0">
-      <div>
-        <!-- Logo / Title -->
-        <div class="p-6 border-b border-slate-800">
-          <div class="flex items-center gap-3">
-            <span class="text-3xl">🪨</span>
-            <div>
-              <h1 class="font-bold text-lg tracking-tight leading-none text-slate-100">Calizas</h1>
-              <span class="text-xs text-emerald-400 font-medium">Evaluación Geoquímica</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Navigation Menu -->
-        <nav class="p-4 space-y-1.5">
-          <button
-            @click="activeTab = 'dashboard'"
-            :class="[
-              'w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
-              activeTab === 'dashboard' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
-            ]"
-          >
-            <UIcon name="i-heroicons-squares-2x2" class="w-5 h-5" />
-            <span>Dashboard</span>
-          </button>
-
-          <button
-            @click="activeTab = 'evaluar'"
-            :class="[
-              'w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
-              activeTab === 'evaluar' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
-            ]"
-          >
-            <UIcon name="i-heroicons-beaker" class="w-5 h-5" />
-            <span>Evaluar Muestra</span>
-          </button>
-
-          <button
-            @click="activeTab = 'historial'"
-            :class="[
-              'w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
-              activeTab === 'historial' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
-            ]"
-          >
-            <UIcon name="i-heroicons-table-cells" class="w-5 h-5" />
-            <span>Historial y Base de Datos</span>
-          </button>
-        </nav>
-      </div>
-
-      <!-- Footer / Credits -->
-      <div class="p-6 border-t border-slate-800 text-xs text-slate-500">
-        <p class="font-semibold text-slate-400">Versión 3.0</p>
-        <p class="mt-1">Criterios de usos industriales</p>
-      </div>
-    </aside>
+    <SidebarNav
+      :active-tab="activeTab"
+      :sub-analisis="subTab"
+      @navigate="({ tab, subAnalisis }) => { activeTab = tab; if (subAnalisis) subTab = subAnalisis }"
+    />
 
     <!-- Main Content Area -->
     <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
@@ -321,26 +269,11 @@
                 <!-- Form to edit before save -->
                 <form @submit.prevent="saveEvaluation(ocrResult.datos)" class="space-y-6">
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">ID Muestra *</label>
-                      <UInput v-model="ocrResult.datos.muestra_id" required color="success" />
-                    </div>
-                    <div>
-                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">CaCO₃ (%)</label>
-                      <UInput v-model.number="ocrResult.datos.caco3" type="number" step="any" min="0" max="100" color="success" />
-                    </div>
-                    <div>
-                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">CaO (%)</label>
-                      <UInput v-model.number="ocrResult.datos.cao" type="number" step="any" min="0" max="100" color="success" />
-                    </div>
-                    <div>
-                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">MgO (%)</label>
-                      <UInput v-model.number="ocrResult.datos.mgo" type="number" step="any" min="0" max="100" color="success" />
-                    </div>
-                    <div>
-                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">SiO₂ (%)</label>
-                      <UInput v-model.number="ocrResult.datos.sio2" type="number" step="any" min="0" max="100" color="success" />
-                    </div>
+                    <AppField v-model="ocrResult.datos.muestra_id" label="ID Muestra *" required color="success" />
+                    <AppField v-model.number="ocrResult.datos.caco3" label="CaCO₃ (%)" type="number" step="any" min="0" max="100" color="success" />
+                    <AppField v-model.number="ocrResult.datos.cao" label="CaO (%)" type="number" step="any" min="0" max="100" color="success" />
+                    <AppField v-model.number="ocrResult.datos.mgo" label="MgO (%)" type="number" step="any" min="0" max="100" color="success" />
+                    <AppField v-model.number="ocrResult.datos.sio2" label="SiO₂ (%)" type="number" step="any" min="0" max="100" color="success" />
                     <div>
                       <label class="block text-sm font-semibold text-slate-700 mb-1.5">Fe₂O₃ (%)</label>
                       <UInput v-model.number="ocrResult.datos.fe2o3" type="number" step="any" min="0" max="100" color="success" />
@@ -672,33 +605,18 @@
       </div>
     </main>
 
-    <!-- INTERACTIVE DETAIL SLIDE-OVER / DRAWER -->
-  <USlideover
-    v-model:open="drawerOpen"
-    title="Detalle de Muestra"
-    :ui="{ content: 'w-full sm:max-w-4xl' }"
-  >
-      <template #content>
-        <div class="h-full flex flex-col bg-white">
-          <!-- Drawer Header -->
-          <div class="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-            <div class="flex items-center gap-3">
-              <span class="text-3xl">🪨</span>
-              <div>
-                <h3 class="font-bold text-lg text-slate-900">Muestra: {{ selectedSample?.id_muestra }}</h3>
-                <p class="text-xs text-slate-400">Registrado el: {{ selectedSample?.fecha_registro }}</p>
-              </div>
-            </div>
-            <UButton color="neutral" variant="ghost" icon="i-heroicons-x-mark" aria-label="Cerrar detalle" @click="drawerOpen = false" />
-          </div>
-
-          <!-- Drawer Content -->
-          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+    <SampleDetailDrawer v-model:open="drawerOpen" :sample="selectedSample">
+      <div class="space-y-6">
             <div class="p-4 rounded-xl border bg-slate-50 space-y-2">
               <p class="font-semibold">{{ summaryText(selectedSample) }}</p>
               <p v-if="selectedSample?.version_evaluacion !== 2" class="text-sm text-amber-800">Histórico · evaluación anterior. Se conserva sin recalcular. Veredicto anterior: {{ selectedSample?.estado_eval || 'No disponible' }}.</p>
               <p class="text-xs text-slate-600">Cumplimiento de los criterios configurados; no constituye certificación normativa.</p>
             </div>
+            <IndustrialProfiles
+              :dictamenes="selectedSample?.dictamenes"
+              :chemical-text="chemicalText"
+              :show-number="showNumber"
+            />
             <section class="space-y-3">
               <h4 class="font-bold">Datos del análisis</h4>
               <p class="text-sm">Base declarada: {{ selectedSample?.contexto?.base || 'No registrada' }} · Base de trazas: {{ selectedSample?.contexto?.base_trazas || 'No registrada' }}</p>
@@ -709,11 +627,10 @@
                 </tbody></table>
               </div>
               <p class="text-sm">DRX: {{ selectedSample?.drx || 'Sin dato' }} · Petrografía: {{ selectedSample?.petrografia || 'Sin dato' }}</p>
-              <section v-if="selectedSample?.contexto?.originales?.length" class="text-sm space-y-2">
-                <h4 class="font-semibold">Composición original completa · {{ selectedSample.contexto.originales.length }} componentes</h4>
-                <p>Valores guardados del informe. Los componentes sin criterio configurado se conservan, pero no generan un dictamen.</p>
-                <table class="w-full text-left"><thead><tr><th>Compuesto</th><th>Lectura</th><th>Unidad</th></tr></thead><tbody><tr v-for="(o, i) in selectedSample.contexto.originales" :key="i"><td>{{ chemicalText(o.compuesto) }}</td><td>{{ o.texto }}</td><td>{{ o.unidad }}</td></tr></tbody></table>
-              </section>
+              <OriginalCompositionTable
+                :originales="selectedSample?.contexto?.originales"
+                :chemical-text="chemicalText"
+              />
               <details v-if="Object.keys(selectedSample?.contexto?.metadatos || {}).length" class="text-sm">
                 <summary class="font-semibold cursor-pointer">Información del ensayo</summary>
                 <dl class="mt-2 space-y-1"><div v-for="(valor, campo) in selectedSample.contexto.metadatos" :key="campo"><dt class="font-medium">{{ campo }}</dt><dd>{{ valor }}</dd></div></dl>
@@ -723,37 +640,20 @@
               <p v-if="selectedSample?.version_evaluacion === 2" class="text-xs text-slate-500">Las fases de Bogue no se presentan: corresponden al clínker y no a esta evaluación de roca caliza.</p>
               <details v-else class="text-sm"><summary>Fases históricas de Bogue (sin recalcular)</summary><p>C₃S: {{ showNumber(selectedSample?.c3s, '%') }} · C₂S: {{ showNumber(selectedSample?.c2s, '%') }} · C₃A: {{ showNumber(selectedSample?.c3a, '%') }} · C₄AF: {{ showNumber(selectedSample?.c4af, '%') }}</p></details>
             </section>
-            <section class="space-y-3">
-              <h4 class="font-bold">Perfiles de uso industrial</h4>
-              <p class="text-xs text-slate-600">“Requiere ensayos” aparece cuando falta un valor numérico exigido. Los valores calculados se identifican por su procedencia y las comprobaciones adicionales se muestran como observaciones.</p>
-              <p v-if="!selectedSample?.dictamenes?.length" class="text-sm">Dictámenes no disponibles.</p>
-              <details v-for="p in selectedSample?.dictamenes || []" :key="p.nombre" class="p-3 border rounded-lg text-sm">
-                <summary class="cursor-pointer font-semibold">{{ p.nombre }} · {{ p.estado }}</summary>
-                <p class="mt-2">{{ chemicalText(p.aplicacion) }}</p><p class="mt-2">{{ chemicalText(p.razon) }}</p>
-                <p class="text-xs text-slate-500 mt-1">Referencia: {{ p.norma }}</p>
-                <div v-if="p.criterios?.length" class="overflow-x-auto mt-3">
-                  <table class="w-full text-left text-xs"><thead><tr><th>Criterio</th><th>Valor</th><th>Límite</th><th>Procedencia</th><th>Resultado</th></tr></thead><tbody>
-                    <tr v-for="(c, i) in p.criterios" :key="i" class="border-t"><td class="py-2 pr-2">{{ chemicalText(c.etiqueta) }}</td><td>{{ showNumber(c.valor, c.unidad) }}</td><td>{{ c.op }} {{ showNumber(c.limite, c.unidad) }}</td><td>{{ c.procedencia || 'No registrada' }}</td><td>{{ c.estado }}</td></tr>
-                  </tbody></table>
-                </div>
-                <ul v-if="p.pendientes?.length" class="list-disc pl-5 mt-2 text-amber-800"><li v-for="(pendiente, i) in p.pendientes" :key="i">{{ chemicalText(pendiente) }}</li></ul>
-                <div v-if="p.observaciones?.length" class="mt-2 text-slate-600"><p class="font-medium">Observaciones recomendadas:</p><ul class="list-disc pl-5"><li v-for="(observacion, i) in p.observaciones" :key="i">{{ chemicalText(observacion) }}</li></ul></div>
-              </details>
-            </section>
-            <section class="space-y-3 border-t pt-4">
-              <h4 class="font-bold">PDF de evidencia</h4>
-              <p class="text-sm">Un PDF por muestra, hasta 10 MiB. Se conserva como respaldo; no interviene en el análisis.</p>
-              <p v-if="selectedSample?.evidencia" class="text-sm">{{ selectedSample.evidencia.nombre }} · {{ selectedSample.evidencia.fecha }} <a :href="`${apiBase}/historial/${encodeURIComponent(selectedSample.id_muestra)}/evidencia`" target="_blank" rel="noopener" class="text-emerald-700 underline">Descargar PDF</a></p>
-              <label class="block text-sm">Seleccionar evidencia PDF<input :key="selectedSample?.id_muestra" type="file" accept=".pdf,application/pdf" class="block mt-1" @change="selectEvidence" /></label>
-              <p v-if="evidenceFile" class="text-sm">Archivo seleccionado: {{ evidenceFile.name }}</p>
-              <label class="flex gap-2 text-sm"><input v-model="evidenceConfirmed" type="checkbox" /> Confirmo que el documento corresponde a esta muestra.</label>
-              <label v-if="selectedSample?.evidencia" class="flex gap-2 text-sm"><input v-model="replaceEvidence" type="checkbox" /> Confirmo reemplazar la evidencia existente.</label>
-              <UButton :disabled="!evidenceFile || !evidenceConfirmed || (!!selectedSample?.evidencia && !replaceEvidence)" :loading="evidenceLoading" @click="uploadEvidence">{{ selectedSample?.evidencia ? 'Reemplazar evidencia' : 'Adjuntar evidencia' }}</UButton>
-            </section>
-          </div>
-        </div>
-      </template>
-    </USlideover>
+            <EvidenceSection
+              :sample="selectedSample"
+              :file="evidenceFile"
+              :confirmed="evidenceConfirmed"
+              :replace="replaceEvidence"
+              :loading="evidenceLoading"
+              :api-base="apiBase"
+              @select="selectEvidence"
+              @update:confirmed="evidenceConfirmed = $event"
+              @update:replace="replaceEvidence = $event"
+              @upload="uploadEvidence"
+            />
+      </div>
+    </SampleDetailDrawer>
 
     <!-- CONFIRM DELETE DIALOG -->
     <UModal v-model:open="deleteModalOpen">

@@ -1,13 +1,13 @@
 <template>
-  <aside class="w-64 bg-inverted text-inverted flex flex-col justify-between shrink-0">
+  <aside class="w-72 bg-slate-900 text-white flex flex-col justify-between shrink-0">
     <div>
       <!-- Logo / Title -->
       <div class="p-6 border-b border-inverted">
         <div class="flex items-center gap-3">
           <span class="text-3xl">🪨</span>
           <div>
-            <h1 class="font-bold text-lg tracking-tight leading-none text-inverted">Calizas</h1>
-            <span class="text-xs text-primary font-medium">Evaluación Geoquímica</span>
+              <h1 class="font-bold text-lg tracking-tight leading-none text-slate-100">Calizas</h1>
+              <span class="text-xs text-emerald-400 font-medium">Evaluación Geoquímica</span>
           </div>
         </div>
       </div>
@@ -21,7 +21,7 @@
             @click="emit('navigate', { tab: item.id })"
             :class="[
               'w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
-              activeTab === item.id ? 'bg-primary text-inverted shadow-md' : 'text-inverted/70 hover:bg-inverted/10 hover:text-inverted'
+              activeTab === item.id ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
             ]"
           >
             <UIcon :name="item.icon" class="w-5 h-5" />
@@ -34,7 +34,7 @@
               @click="expanded = !expanded"
               :class="[
                 'w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                activeTab === 'evaluar' ? 'bg-primary text-inverted shadow-md' : 'text-inverted/70 hover:bg-inverted/10 hover:text-inverted'
+                activeTab === 'evaluar' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
               ]"
             >
               <UIcon :name="item.icon" class="w-5 h-5" />
@@ -50,8 +50,8 @@
                 :class="[
                   'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
                   activeTab === 'evaluar' && subAnalisis === child.id
-                    ? 'bg-primary text-inverted shadow-md'
-                    : 'text-inverted/60 hover:bg-inverted/10 hover:text-inverted'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
                 ]"
               >
                 {{ child.label }}
@@ -63,9 +63,9 @@
     </div>
 
     <!-- Footer / Credits -->
-    <div class="p-6 border-t border-inverted text-xs text-inverted/60">
-      <p class="font-semibold text-inverted/80">Versión 3.0</p>
-      <p class="mt-1">Normativas ASTM C150 / NTC 321</p>
+    <div class="p-6 border-t border-slate-800 text-xs text-slate-500">
+      <p class="font-semibold text-slate-400">Versión 3.0</p>
+      <p class="mt-1">Criterios de usos industriales</p>
     </div>
   </aside>
 </template>
@@ -88,9 +88,9 @@ const navItems = [
     icon: 'i-heroicons-beaker',
     label: 'Evaluar Muestra',
     children: [
-      { id: 'geo', label: 'Evaluación geoquímica' },
-      { id: 'petrografia', label: 'Análisis Petrografía' },
-      { id: 'termicas', label: 'Análisis de propiedades térmicas' }
+      { id: 'pdf', label: 'Extraer desde PDF' },
+      { id: 'manual', label: 'Entrada manual' },
+      { id: 'batch', label: 'Carga masiva' }
     ]
   },
   { id: 'historial', icon: 'i-heroicons-table-cells', label: 'Historial y Base de Datos' }
