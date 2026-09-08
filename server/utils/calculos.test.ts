@@ -1,4 +1,4 @@
-// Tests del motor portado — 1:1 con backend/test_calculos_calizas.py
+// Regresiones del motor: conservación numérica y dictámenes con datos pendientes.
 import { describe, it, expect } from 'vitest'
 import {
   parsear_reporte_xrf, convertir_base_seca, es_base_calcinada,
@@ -26,7 +26,7 @@ describe('parseo XRF', () => {
     expect(d.mgo).toBe(0.302)
     expect(d.sio2).toBe(1.476)
     expect(d.pb).toBe(23.8)
-    expect(d.cd).toBe(0.0)
+    expect(d.cd).toBeNull()
   })
   it('texto sin tabla retorna null', () => {
     expect(parsear_reporte_xrf('texto sin tabla alguna')).toBeNull()
@@ -56,22 +56,22 @@ describe('validación de extracción', () => {
   const d = parsear_reporte_xrf(TEXTO_XRF)!
   const seco = convertir_base_seca(d)
   it('avisa base calcinada en M10 crudo', () => {
-    expect(validar_extraccion(d).some((a) => a.includes('base calcinada'))).toBe(true)
+    expect(validar_extraccion(d).some((a) => a.includes('conversión estimada a base seca'))).toBe(true)
   })
   it('no avisa en datos secos', () => {
-    expect(validar_extraccion(seco).some((a) => a.includes('base calcinada'))).toBe(false)
+    expect(validar_extraccion(seco).some((a) => a.includes('conversión estimada a base seca'))).toBe(false)
   })
 })
 
 // Helper: construye la llamada posicional de calcular_evaluacion con los 13 campos
 // en el orden de la firma: (caco3, cao, mgo, sio2, fe2o3, al2o3, so3, na2o, k2o, p2o5, pb, cd, as_ppm)
-function evalCon(datos: Record<string, number>, extras?: Record<string, number>) {
-  const args: [number, number, number, number, number, number, number, number, number, number, number, number, number] = [
-    datos.caco3 ?? 0, datos.cao ?? 0, datos.mgo ?? 0, datos.sio2 ?? 0, datos.fe2o3 ?? 0,
-    datos.al2o3 ?? 0, datos.so3 ?? 0, datos.na2o ?? 0, datos.k2o ?? 0, datos.p2o5 ?? 0,
-    datos.pb ?? 0, datos.cd ?? 0, datos.as_ppm ?? 0,
+function evalCon(datos: Record<string, number | null>, extras?: Record<string, number | null>) {
+  const args: [number | null, number | null, number | null, number | null, number | null, number | null, number | null, number | null, number | null, number | null, number | null, number | null, number | null] = [
+    datos.caco3 ?? null, datos.cao ?? null, datos.mgo ?? null, datos.sio2 ?? null, datos.fe2o3 ?? null,
+    datos.al2o3 ?? null, datos.so3 ?? null, datos.na2o ?? null, datos.k2o ?? null, datos.p2o5 ?? null,
+    datos.pb ?? null, datos.cd ?? null, datos.as_ppm ?? null,
   ]
-  return calcular_evaluacion(...args, 'Micrítica de grano fino', true, 0, 0, 0, extras ?? null)
+  return calcular_evaluacion(...args, 'Micrítica de grano fino', true, 0, 0, 0, extras ?? null, { base: 'seca', base_trazas: 'seca' })
 }
 
 describe('evaluación completa', () => {
@@ -82,7 +82,8 @@ describe('evaluación completa', () => {
   const r_calc = evalCon(d)
 
   it('estado_eval válido', () => {
-    expect(['APTO', 'NO APTO']).toContain(r.estado_eval)
+    expect(r.estado_eval).toBeNull()
+    expect(r.resumen).not.toBeNull()
   })
   it('invariantes LSF ante cambio de base', () => {
     expect(Math.abs(r.lsf - r_calc.lsf)).toBeLessThan(0.2)
@@ -103,7 +104,7 @@ describe('evaluación completa', () => {
     expect(dic['Industria alimentaria'].estado).toBe('No Apto')
     expect(dic['Material de construcción'].estado).toBe('Requiere ensayos')
     expect(dic['Industria del papel'].estado).toBe('Requiere ensayos')
-    expect(dic['Cal agrícola'].estado).toBe('Apto')
+    expect(dic['Cal agrícola'].estado).toBe('Requiere ensayos')
   })
 
   it('extras resuelven pendientes', () => {

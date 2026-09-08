@@ -1,57 +1,49 @@
-# Evaluación Geoquímica de Calizas
+# Evaluación geoquímica de calizas
 
-Software para evaluar muestras de caliza y dictaminar su aptitud en **17 usos industriales** (cemento Portland, cales, siderurgia, vidrio, papel, alimentaria, farmacéutica, etc.) según normas ASTM / NTC / ISO. Calcula LSF, módulos de sílice y alúmina, fases de Bogue (C3S, C2S, C3A, C4AF) y valida límites de la norma ASTM C150 / NTC 321.
+Aplicación Nuxt/Nitro para revisar muestras contra una matriz de 17 usos industriales. Los resultados expresan cumplimiento de los criterios configurados; no constituyen certificación normativa.
 
-App única Nuxt 4 + Nitro: frontend y backend en un solo proceso, un solo deploy.
-
-## Estructura
-
-| Ruta | Qué es |
-|---|---|
-| `app/app.vue` | UI completa (SPA): dashboard, PDF, formulario manual, lote, historial, drawer de detalle |
-| `server/api/*.ts` | Rutas Nitro: `/api/evaluar`, `/api/procesar-pdf`, `/api/historial`, `/api/exportar-excel`, `/api/procesar-lote` |
-| `server/utils/calculos.ts` | Motor de cálculo portado 1:1 de Python: parser XRF Omnian, conversión de base, LSF/SM/AM, Bogue, matriz de 17 perfiles |
-| `server/utils/pdf.ts` | Extracción de texto PDF (pdfjs-dist) |
-| `server/utils/lote.ts` | Carga por lote CSV/XLSX con normalización de columnas (tildes, DRX/PETROGRAFÍA) |
-| `server/utils/excel.ts` | Exportación del historial a Excel (exceljs) |
-| `server/utils/db.ts` | Capa de datos con `@libsql/client` (SQLite local, Turso futuro) |
-| `server/plugins/db.ts` | Crea el esquema de la base al arrancar |
-| `server/utils/calculos.test.ts` | Tests Vitest del motor (paridad con los asserts Python originales) |
-
-## Instalación
-
-Requiere Node 20+.
+## Ejecutar
 
 ```bash
 npm install
+npm run dev
+npm test
+npm run build
+npm run preview
 ```
 
-## Uso
+Node 20+. SQLite local (`calizas.db`) por defecto; `TURSO_URL` y `TURSO_TOKEN` permiten usar libSQL remoto. Las migraciones son aditivas y no recalculan registros previos.
 
-```bash
-npm run dev        # http://localhost:3000
-npm run build      # build de producción (.output)
-npm run preview    # servir el build
-npm test           # suite Vitest del motor
-```
+## Ingreso y análisis
 
-Tres formas de ingresar muestras:
+- PDF de tabla XRF Omnian (`Sample results`, como M7 T): extrae compuestos, valores, unidades e ID; conserva también los elementos no usados por los perfiles.
+- Entrada manual: datos químicos y ensayos opcionales.
+- Lote CSV/XLSX: columna `ID Muestra` y composición (`CaCO3`, `CaO`, `MgO`, `SiO2`, `Fe2O3`, `Al2O3`, `SO3`, `Na2O`, `K2O`, `P2O5`, `Pb`, `Cd`, `As`). Se admiten subíndices y unidades en encabezados. Ensayos: `PN`, `Blancura`, `TamanoParticula`, `Humedad`, `CaODisponible`, `CaOReactivo`, `Resistencia`, `Absorcion`, `LOI`. El formato antiguo XLS no es compatible.
 
-1. **📄 Procesar PDF** — PDF del laboratorio (XRF Panalytical/Omnian), reporte *"Sample results"*. Extracción automática de composición, trazas (Pb, Cd, As) e ID de muestra. Conversión automática de base calcinada → seca (LOI estimado o medido).
-2. **✍️ Entrada Manual** — formulario con la química completa y ensayos opcionales.
-3. **📑 Carga por Lote (Excel/CSV)** — archivo con columnas `ID Muestra, CaCO3, CaO, MgO, SiO2, Fe2O3, Al2O3, SO3, Na2O, K2O` (+ DRX, Petrografía). Las columnas se normalizan (acentos, espacios, `(%)`).
+Seleccionar explícitamente la base del informe y de las trazas. La suma de óxidos solo ofrece un indicio: no confirma la base. La conversión a seca requiere base calcinada confirmada y LOI medido o una estimación seleccionada explícitamente. Un LOI medido igual a cero se conserva. Las trazas solo se convierten cuando se declara su base calcinada.
 
-**Ensayos opcionales** (blancura, granulometría, humedad, PN, CaO disponible/reactivo, resistencia, absorción): si se dejan vacíos, los dictámenes que dependen de ellos salen como *"Requiere ensayos"* en lugar de inventar un valor. El PN se estima con el CaCO3 equivalente si no se mide.
+Una celda vacía significa dato ausente, nunca cero. Los límites de detección del PDF se conservan como texto y requieren interpretación. Se rechazan valores inválidos, negativos o fuera del rango de su unidad. Se compara con precisión original y operadores estrictos; el redondeo de presentación no altera el dictamen.
 
-En **Consultar Historial**: tabla completa de la base, descarga del Excel (`/api/exportar-excel`) y detalle de cualquier muestra.
+Los valores estimados se muestran como informativos y no sustituyen mediciones necesarias. No se asignan automáticamente mineralogía, petrografía ni PN. Las fases de Bogue no se calculan para esta evaluación de roca; las relaciones LSF/SM/AM no equivalen a aptitud industrial.
 
-## Base de datos
+## Dictámenes e históricos
 
-- SQLite local por defecto: `calizas.db` (se crea solo al arrancar; no se commitea).
-- Migración a **Turso** sin cambiar código: setear `TURSO_URL` y `TURSO_TOKEN` en el entorno.
+Cada perfil muestra criterios, valores, unidades, límites, procedencia y pendientes. Un incumplimiento demostrado prevalece, sin ocultar los ensayos faltantes. Si falta base, medición o verificación de una condición necesaria, se muestra `Requiere ensayos`. Las condiciones cualitativas de la matriz que no tienen una regla verificable permanecen pendientes; no existe aprobación manual de esas condiciones en esta versión.
 
-## Notas de dominio
+Resumen, detalle, historial y Excel usan los mismos dictámenes. Los registros anteriores se identifican como históricos y mantienen sus resultados sin recálculo. No es posible sobrescribirlos usando el mismo ID; tampoco se incluye reevaluación masiva. Un lote inválido o con ID duplicado no se guarda parcialmente.
 
-- **LSF alto en caliza pura no es error**: el rango 0.9–1.0 aplica a la *mezcla* de horno (caliza + arcilla), no a la roca sola. LSF/SM/AM son cocientes: no cambian con la conversión de base.
-- Los umbrales de los 17 perfiles viven en `PERFILES_INDUSTRIALES` (`server/utils/calculos.ts`): cambiar un límite es editar una línea.
-- Metales pesados para alimentaria/farmacéutica: Pb < 3, Cd < 1, As < 3 ppm (FCC / Reglamento UE 231/2012).
+## Evidencia PDF
+
+Desde el detalle de una muestra se puede adjuntar un PDF (por ejemplo, M7 E), confirmando su correspondencia. Se guarda como BLOB en libSQL y se descarga por identificador de muestra. Un archivo por muestra, hasta 10 MiB. La sustitución requiere confirmación. Un fallo al adjuntar no elimina la evaluación.
+
+El PDF se valida para apertura, pero no se digitaliza ni participa en los cálculos. El servidor admite 10 MiB; el límite de petición de la plataforma de despliegue puede ser inferior y debe comprobarse antes de publicar. El listado consulta solo metadatos del adjunto.
+
+## Código
+
+- `server/utils/calculos.ts`: extracción, validación, conversiones y matriz de perfiles.
+- `server/utils/db.ts`: almacenamiento, migraciones y transacciones.
+- `server/utils/pdf.ts` y `evidencia.ts`: lectura y validación PDF.
+- `server/utils/lote.ts` y `excel.ts`: importación y exportación.
+- `app/app.vue`: revisión, historial y evidencia.
+
+La exportación contiene historial, dictámenes, criterios, originales y valores usados, conservando ceros, vacíos y precisión. Las pruebas cubren regresiones del motor, exportación, lotes, históricos y evidencia con base temporal.

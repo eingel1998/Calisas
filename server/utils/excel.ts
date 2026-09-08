@@ -1,66 +1,44 @@
-// Exportación del historial a Excel con exceljs (mismas columnas que backend/main.py).
 import ExcelJS from 'exceljs'
+import { resumir_dictamenes } from './calculos'
 
 export async function exportar_historial_excel(muestras: any[]): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Calizas Historial')
-
-  const filas = muestras.map((m) => {
-    const dict_flat: Record<string, string> = {}
-    for (const dictItem of m.dictamenes ?? []) {
-      dict_flat[`Dictamen ${dictItem.nombre}`] = dictItem.estado
-    }
-    const r3 = (v: unknown) => (v ? Math.round(Number(v) * 1000) / 1000 : null)
-    return {
-      'ID Muestra': m.id_muestra,
-      'CaCO3 (%)': m.caco3,
-      'CaO (%)': m.cao,
-      'MgO (%)': m.mgo,
-      'SiO2 (%)': m.sio2,
-      'Fe2O3 (%)': m.fe2o3,
-      'Al2O3 (%)': m.al2o3,
-      'LSF': r3(m.lsf),
-      'SO3 (%)': m.so3,
-      'Na2O (%)': m.na2o,
-      'K2O (%)': m.k2o,
-      'P2O5 (%)': m.p2o5,
-      'Pb (ppm)': m.pb,
-      'Cd (ppm)': m.cd,
-      'As (ppm)': m.as_ppm,
-      'DRX': m.drx,
-      'Petrografía': m.petrografia,
-      'LOI (%)': r3(m.loi),
-      'Residuo Insoluble (%)': r3(m.res_insol),
-      'Alcalis (Na2Oeq) (%)': r3(m.alcalis),
-      'C3S (Alita) (%)': m.c3s,
-      'C2S (Belita) (%)': m.c2s,
-      'C3A (%)': m.c3a,
-      'C4AF (%)': m.c4af,
-      'Modulo de Silice (SM)': r3(m.sm),
-      'Modulo de Alumina (AM)': r3(m.am),
-      'Estado Evaluacion': m.estado_eval,
-      'Archivo Fuente': m.archivo_fuente,
-      'Fecha Registro': m.fecha_registro,
-      ...dict_flat,
-    }
-  })
-
-  // Union de headers en orden: fijas primero, luego las columnas "Dictamen *" dinámicas
-  const headers: string[] = []
-  const fijas = [
-    'ID Muestra', 'CaCO3 (%)', 'CaO (%)', 'MgO (%)', 'SiO2 (%)', 'Fe2O3 (%)', 'Al2O3 (%)', 'LSF',
-    'SO3 (%)', 'Na2O (%)', 'K2O (%)', 'P2O5 (%)', 'Pb (ppm)', 'Cd (ppm)', 'As (ppm)', 'DRX',
-    'Petrografía', 'LOI (%)', 'Residuo Insoluble (%)', 'Alcalis (Na2Oeq) (%)', 'C3S (Alita) (%)',
-    'C2S (Belita) (%)', 'C3A (%)', 'C4AF (%)', 'Modulo de Silice (SM)', 'Modulo de Alumina (AM)',
-    'Estado Evaluacion', 'Archivo Fuente', 'Fecha Registro',
-  ]
-  const dictHeaders = [...new Set(filas.flatMap((f) => Object.keys(f).filter((k) => k.startsWith('Dictamen '))))]
-  headers.push(...fijas, ...dictHeaders)
-
-  ws.addRow(headers)
-  for (const f of filas) {
-    ws.addRow(headers.map((h) => f[h] ?? null))
+  const campos: Record<string,string> = {
+    id_muestra:'ID Muestra',caco3:'CaCO₃ (%)',cao:'CaO (%)',mgo:'MgO (%)',sio2:'SiO₂ (%)',fe2o3:'Fe₂O₃ (%)',al2o3:'Al₂O₃ (%)',so3:'SO₃ (%)',na2o:'Na₂O (%)',k2o:'K₂O (%)',p2o5:'P₂O₅ (%)',pb:'Pb (ppm)',cd:'Cd (ppm)',as_ppm:'As (ppm)',drx:'DRX',petrografia:'Petrografía',loi:'LOI (%)',res_insol:'Residuo Insoluble (%)',alcalis:'Álcalis (Na₂Oeq) (%)',lsf:'LSF',sm:'Módulo de Sílice',am:'Módulo de Alúmina',c3s:'C₃S histórico (%)',c2s:'C₂S histórico (%)',c3a:'C₃A histórico (%)',c4af:'C₄AF histórico (%)',archivo_fuente:'Archivo Fuente',fecha_registro:'Fecha Registro',
   }
-
+  ws.addRow([...Object.values(campos),'Versión de evaluación','Base del informe','Base de trazas','Usos que cumplen','Usos que incumplen','Usos con pendientes','Estado histórico','Evidencia PDF'])
+  const dictamenes=wb.addWorksheet('Dictámenes')
+  dictamenes.addRow(['ID Muestra','Uso','Resultado','Explicación','Referencia de la matriz'])
+  const criterios=wb.addWorksheet('Criterios')
+  criterios.addRow(['ID Muestra','Uso','Criterio','Valor usado','Unidad','Operador','Límite','Resultado','Procedencia'])
+  const originales=wb.addWorksheet('Datos originales')
+  originales.addRow(['ID Muestra','Compuesto','Texto original','Valor original','Unidad'])
+  const ensayo=wb.addWorksheet('Datos del ensayo')
+  ensayo.addRow(['ID Muestra','Dato del ensayo','Valor original'])
+  const usados=wb.addWorksheet('Datos usados')
+  usados.addRow(['ID Muestra','Campo','Valor usado','Procedencia'])
+  for (const m of muestras) {
+    const resumen=resumir_dictamenes(m.dictamenes)
+    ws.addRow([...Object.keys(campos).map(k=>m[k]??null),m.version_evaluacion??'Histórica',m.contexto?.base??'Sin información',m.contexto?.base_trazas??'Sin información',resumen?.aptos??null,resumen?.no_aptos??null,resumen?.pendientes??null,m.version_evaluacion===2?null:m.estado_eval??null,m.evidencia?.nombre??null])
+    if(!resumen) dictamenes.addRow([m.id_muestra,null,'Resultado no disponible'])
+    else for (const d of m.dictamenes) {
+      dictamenes.addRow([m.id_muestra,d.nombre,d.estado,d.razon,d.norma])
+      for (const c of d.criterios??[]) criterios.addRow([m.id_muestra,d.nombre,c.etiqueta,c.valor??null,c.unidad,c.op,c.limite,c.estado,c.procedencia??null])
+    }
+    for(const [k,v] of Object.entries(m.contexto?.metadatos??{})) ensayo.addRow([m.id_muestra,k,v])
+    for(const d of m.contexto?.originales??[]) originales.addRow([m.id_muestra,d.compuesto,d.texto,d.valor??null,d.unidad])
+    for(const [k,v] of Object.entries(m.contexto?.usados??{})) usados.addRow([m.id_muestra,k,v??null,m.contexto?.procedencia?.[k]??null])
+  }
+  for(const sheet of wb.worksheets) {
+    sheet.views=[{state:'frozen',ySplit:1}]
+    sheet.getRow(1).font={bold:true}
+    sheet.columns.forEach(c=>{c.width=24})
+    sheet.getColumn(1).width=20
+    sheet.eachRow((r,n)=>{if(n>1) r.eachCell(c=>{if(typeof c.value==='number') c.numFmt='0.############'})})
+  }
+  dictamenes.getColumn(4).width=90
+  dictamenes.getColumn(4).alignment={wrapText:true,vertical:'top'}
+  criterios.getColumn(3).width=40
   return Buffer.from(await wb.xlsx.writeBuffer())
 }

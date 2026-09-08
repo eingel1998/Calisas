@@ -1,113 +1,49 @@
-// Tipos compartidos del motor de evaluación geoquímica de calizas.
-// Portados 1:1 del modelo Python (backend/calculos_calizas.py).
-
+export type Numero = number | null
+export type BaseAnalitica = 'desconocida' | 'seca' | 'calcinada'
+export type Procedencia = 'medido' | 'calculado' | 'estimado'
+export interface DatoOriginal { compuesto: string; texto: string; unidad: string; valor: Numero }
+export interface ContextoAnalisis {
+  base: BaseAnalitica
+  base_trazas: BaseAnalitica
+  convertir: boolean
+  estimar_loi: boolean
+  loi: Numero
+  originales: DatoOriginal[]
+  metadatos: Record<string, string>
+  texto_reporte: string
+  procedencia: Record<string, Procedencia>
+  entrada?: Record<string, Numero>
+  usados?: Record<string, Numero>
+}
 export interface EnsayosOpcionales {
-  pn?: number | null
-  blancura?: number | null
-  tamano_particula?: number | null
-  humedad?: number | null
-  cao_disponible?: number | null
-  cao_reactivo?: number | null
-  resistencia?: number | null
-  absorcion?: number | null
+  pn?: Numero; blancura?: Numero; tamano_particula?: Numero; humedad?: Numero
+  cao_disponible?: Numero; cao_reactivo?: Numero; resistencia?: Numero; absorcion?: Numero
 }
-
-export interface DatosXRF {
-  muestra_id: string
-  caco3: number
-  cao: number
-  mgo: number
-  sio2: number
-  fe2o3: number
-  al2o3: number
-  so3: number
-  na2o: number
-  k2o: number
-  pb: number
-  cd: number
-  as_ppm: number
+export type Composicion = Record<'caco3' | 'cao' | 'mgo' | 'sio2' | 'fe2o3' | 'al2o3' | 'so3' | 'na2o' | 'k2o' | 'p2o5' | 'pb' | 'cd' | 'as_ppm', Numero>
+export type DatosXRF = Composicion & { muestra_id: string; originales: DatoOriginal[]; metadatos: Record<string, string>; texto_reporte: string }
+export interface CriterioDictamen {
+  campo: string; etiqueta: string; valor: Numero; unidad: string
+  op: '>' | '<'; limite: number; estado: 'Cumple' | 'Incumple' | 'Pendiente'
+  procedencia: Procedencia | null
 }
-
 export interface PerfilDictamen {
-  nombre: string
-  aplicacion: string
-  norma: string
+  nombre: string; aplicacion: string; norma: string
   estado: 'Apto' | 'No Apto' | 'Requiere ensayos'
   razon: string
+  criterios: CriterioDictamen[]
+  pendientes: string[]
+  observaciones: string[]
 }
-
-export interface ResultadoEvaluacion {
-  caco3: number
-  cao: number
-  mgo: number
-  sio2: number
-  fe2o3: number
-  al2o3: number
-  so3: number
-  na2o: number
-  k2o: number
-  p2o5: number
-  pb: number
-  cd: number
-  as_ppm: number
-  loi: number
-  res_insol: number
-  alcalis: number
-  lsf: number
-  sm: number
-  am: number
-  interp_sm: string
-  interp_am: string
-  c3s: number
-  c2s: number
-  c3a: number
-  c4af: number
-  advertencias_geol: string[]
-  interp_cesar: string[]
-  errores_norma: string[]
-  cumple_norma: boolean
-  estado_eval: 'APTO' | 'NO APTO'
-  dictamenes: PerfilDictamen[]
+export interface ResumenUsos { aptos: number; no_aptos: number; pendientes: number }
+export type ResultadoEvaluacion = Composicion & {
+  loi: Numero; res_insol: Numero; alcalis: Numero; lsf: Numero; sm: Numero; am: Numero
+  c3s: Numero; c2s: Numero; c3a: Numero; c4af: Numero
+  advertencias_geol: string[]; interp_cesar: string[]; interp_sm: string; interp_am: string
+  errores_norma: string[]; cumple_norma: null; estado_eval: null
+  dictamenes: PerfilDictamen[]; resumen: ResumenUsos | null
+  contexto: ContextoAnalisis; version_evaluacion: 2
 }
-
-export interface MuestraDB {
-  id_muestra: string
-  caco3: number
-  cao: number
-  mgo: number
-  sio2: number
-  fe2o3: number
-  al2o3: number
-  so3: number
-  na2o: number | null
-  k2o: number | null
-  p2o5: number | null
-  pb: number | null
-  cd: number | null
-  as_ppm: number | null
-  drx: string
-  petrografia: string
-  loi: number
-  res_insol: number
-  alcalis: number
-  lsf: number
-  sm: number
-  am: number
-  c3s: number
-  c2s: number
-  c3a: number
-  c4af: number
-  estado_eval: string
-  archivo_fuente: string
-  fecha_registro: string
-  dictamenes_json: string
-  pn: number | null
-  blancura: number | null
-  tamano_particula: number | null
-  humedad: number | null
-  cao_disponible: number | null
-  cao_reactivo: number | null
-  resistencia: number | null
-  absorcion: number | null
-  dictamenes?: PerfilDictamen[]
+export type MuestraDB = Partial<ResultadoEvaluacion> & {
+  id_muestra: string; drx: string | null; petrografia: string | null
+  archivo_fuente: string; fecha_registro: string; dictamenes_json: string
 }

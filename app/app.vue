@@ -1,7 +1,7 @@
 <template>
-  <div class="min-h-screen bg-slate-50 text-slate-800 flex">
+  <UApp><div class="min-h-screen bg-slate-50 text-slate-800 flex">
     <!-- Sidebar -->
-    <aside class="w-64 bg-slate-900 text-white flex flex-col justify-between shrink-0">
+    <aside class="w-72 bg-slate-900 text-white flex flex-col justify-between shrink-0">
       <div>
         <!-- Logo / Title -->
         <div class="p-6 border-b border-slate-800">
@@ -54,7 +54,7 @@
       <!-- Footer / Credits -->
       <div class="p-6 border-t border-slate-800 text-xs text-slate-500">
         <p class="font-semibold text-slate-400">Versión 3.0</p>
-        <p class="mt-1">Normativas ASTM C150 / NTC 321</p>
+        <p class="mt-1">Criterios de usos industriales</p>
       </div>
     </aside>
 
@@ -67,7 +67,7 @@
           <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">Local DB (SQLite)</span>
         </div>
         <div class="flex items-center gap-4">
-          <span class="text-sm text-slate-500">Backend unificado: <b class="text-emerald-600 font-medium">Conectado</b></span>
+          <span class="text-sm text-slate-500">Evaluación de usos industriales</span>
         </div>
       </header>
 
@@ -92,8 +92,8 @@
             <UCard class="shadow-sm">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-sm font-medium text-slate-500">Aptas Cemento</p>
-                  <p class="text-3xl font-bold text-emerald-600 mt-1">{{ samples.filter(s => s.estado_eval === 'APTO').length }}</p>
+                  <p class="text-sm font-medium text-slate-500">Muestras con usos que cumplen</p>
+                  <p class="text-3xl font-bold text-emerald-600 mt-1">{{ samples.filter(s => s.resumen?.aptos > 0).length }}</p>
                 </div>
                 <div class="p-3 bg-emerald-50 text-emerald-600 rounded-full">
                   <UIcon name="i-heroicons-check-circle" class="w-6 h-6" />
@@ -104,8 +104,8 @@
             <UCard class="shadow-sm">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-sm font-medium text-slate-500">No Aptas Cemento</p>
-                  <p class="text-3xl font-bold text-rose-600 mt-1">{{ samples.filter(s => s.estado_eval === 'NO APTO').length }}</p>
+                  <p class="text-sm font-medium text-slate-500">Muestras con incumplimientos</p>
+                  <p class="text-3xl font-bold text-rose-600 mt-1">{{ samples.filter(s => s.resumen?.no_aptos > 0).length }}</p>
                 </div>
                 <div class="p-3 bg-rose-50 text-rose-600 rounded-full">
                   <UIcon name="i-heroicons-x-circle" class="w-6 h-6" />
@@ -116,9 +116,9 @@
             <UCard class="shadow-sm bg-gradient-to-br from-emerald-600 to-teal-700 text-white">
               <div class="flex items-center justify-between">
                 <div>
-                  <p class="text-sm font-medium opacity-90">Tasa de Aprobación</p>
+                  <p class="text-sm font-medium opacity-90">Muestras con ensayos pendientes</p>
                   <p class="text-3xl font-bold mt-1">
-                    {{ samples.length > 0 ? Math.round((samples.filter(s => s.estado_eval === 'APTO').length / samples.length) * 100) : 0 }}%
+                    {{ samples.filter(s => s.resumen?.pendientes > 0).length }}
                   </p>
                 </div>
                 <div class="p-3 bg-white/10 text-white rounded-full">
@@ -139,11 +139,11 @@
               </template>
               <p class="text-sm text-slate-600 mb-4">Empieza evaluando una nueva muestra ingresando sus componentes químicos o cargando un archivo XRF.</p>
               <div class="flex gap-3">
-                <UButton color="emerald" @click="activeTab = 'evaluar'; subTab = 'manual'">
+                <UButton color="success" @click="activeTab = 'evaluar'; subTab = 'manual'">
                   Entrada Manual
                 </UButton>
-                <UButton color="slate" variant="soft" @click="activeTab = 'evaluar'; subTab = 'pdf'">
-                  Subir PDF / Imagen
+                <UButton color="neutral" variant="soft" @click="activeTab = 'evaluar'; subTab = 'pdf'">
+                  Subir PDF
                 </UButton>
               </div>
             </UCard>
@@ -156,7 +156,7 @@
                 </h3>
               </template>
               <p class="text-sm text-slate-600 mb-4">Descarga el archivo Excel estructurado con todas las muestras registradas e históricos de dictámenes.</p>
-              <UButton color="emerald" variant="outline" icon="i-heroicons-document-arrow-down" @click="downloadExcel">
+              <UButton color="success" variant="outline" icon="i-heroicons-document-arrow-down" @click="downloadExcel">
                 Descargar BaseDatos_Calizas.xlsx
               </UButton>
             </UCard>
@@ -167,7 +167,7 @@
             <template #header>
               <div class="flex items-center justify-between">
                 <h3 class="font-bold text-slate-800">Muestras Recientes</h3>
-                <UButton variant="link" color="emerald" @click="activeTab = 'historial'">Ver todo</UButton>
+                <UButton variant="link" color="success" @click="activeTab = 'historial'">Ver todo</UButton>
               </div>
             </template>
 
@@ -180,25 +180,23 @@
                 <thead>
                   <tr class="border-b border-slate-100 bg-slate-50/50 text-slate-500 font-semibold">
                     <th class="py-3 px-4">ID Muestra</th>
-                    <th class="py-3 px-4">CaCO3 (%)</th>
+                    <th class="py-3 px-4">CaCO₃ (%)</th>
                     <th class="py-3 px-4">CaO (%)</th>
-                    <th class="py-3 px-4">SiO2 (%)</th>
-                    <th class="py-3 px-4">LSF</th>
-                    <th class="py-3 px-4">Veredicto</th>
+                    <th class="py-3 px-4">SiO₂ (%)</th>
+
+                    <th class="py-3 px-4">Resultados por uso</th>
                     <th class="py-3 px-4">Fecha</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                   <tr v-for="s in samples.slice(0, 5)" :key="s.id_muestra" class="hover:bg-slate-50/80 transition-colors cursor-pointer" @click="viewSampleDetails(s)">
                     <td class="py-3 px-4 font-bold text-slate-900">{{ s.id_muestra }}</td>
-                    <td class="py-3 px-4">{{ s.caco3 }}%</td>
-                    <td class="py-3 px-4">{{ s.cao }}%</td>
-                    <td class="py-3 px-4">{{ s.sio2 }}%</td>
-                    <td class="py-3 px-4 font-mono">{{ s.lsf?.toFixed(3) }}</td>
+                    <td class="py-3 px-4">{{ showNumber(s.caco3, '%') }}</td>
+                    <td class="py-3 px-4">{{ showNumber(s.cao, '%') }}</td>
+                    <td class="py-3 px-4">{{ showNumber(s.sio2, '%') }}</td>
+
                     <td class="py-3 px-4">
-                      <span :class="['px-2 py-0.5 rounded-full text-xs font-bold', s.estado_eval === 'APTO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200']">
-                        {{ s.estado_eval }}
-                      </span>
+                      <span>{{ summaryText(s) }}</span><span v-if="s.version_evaluacion !== 2" class="block text-xs text-amber-700">Histórico · evaluación anterior</span>
                     </td>
                     <td class="py-3 px-4 text-xs text-slate-400">{{ s.fecha_registro }}</td>
                   </tr>
@@ -213,7 +211,7 @@
           <!-- Sub Tabs Header -->
           <div class="flex gap-4 border-b border-slate-200 pb-px">
             <button
-              v-for="tab in [{id: 'pdf', label: '📄 Procesar PDF / Imagen'}, {id: 'manual', label: '✍️ Entrada Manual'}, {id: 'batch', label: '📑 Carga por Lote'}]"
+              v-for="tab in [{id: 'pdf', label: '📄 Procesar PDF'}, {id: 'manual', label: '✍️ Entrada Manual'}, {id: 'batch', label: '📑 Carga por Lote'}]"
               :key="tab.id"
               @click="subTab = tab.id"
               :class="[
@@ -224,6 +222,24 @@
               {{ tab.label }}
             </button>
           </div>
+
+          <section class="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+            <h3 class="font-semibold">Base de los resultados {{ subTab === 'batch' ? '(común a todas las filas)' : '' }}</h3>
+            <p class="text-sm text-slate-600">Confirma la base con el informe del laboratorio. Un campo vacío significa “Sin dato”. Los valores originales se conservan y la conversión se aplica al evaluar.</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <label class="text-sm">Base analítica
+                <USelect v-model="analysisOptions.base" :items="baseOptions" color="success" class="mt-1 w-full" />
+              </label>
+              <label class="text-sm">Base de las trazas (ppm)
+                <USelect v-model="analysisOptions.base_trazas" :items="baseOptions" color="success" class="mt-1 w-full" />
+              </label>
+              <label class="text-sm">LOI medido (%)
+                <UInput v-model.number="analysisOptions.loi" type="number" min="0" max="100" step="any" placeholder="Sin dato" />
+              </label>
+            </div>
+            <UCheckbox v-model="analysisOptions.convertir" color="success" :disabled="analysisOptions.base !== 'calcinada'" label="Convertir de base calcinada a seca" />
+            <UCheckbox v-model="analysisOptions.estimar_loi" color="success" :disabled="analysisOptions.base !== 'calcinada' || !analysisOptions.convertir || (analysisOptions.loi !== null && analysisOptions.loi !== '')" label="Estimar LOI si falta (informativo; no sustituye un ensayo)" />
+          </section>
 
           <!-- Sub Tab: PDF/Imagen -->
           <div v-if="subTab === 'pdf'" class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -236,10 +252,10 @@
                 <div class="space-y-4">
                   <!-- File uploader -->
                   <div class="border-2 border-dashed border-slate-200 rounded-lg p-6 hover:border-emerald-500 transition-colors flex flex-col items-center justify-center text-center cursor-pointer relative bg-slate-50/50">
-                    <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,image/*" @change="handleFileUpload" />
+                    <input :key="uploadedFileName" type="file" :disabled="ocrLoading" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".pdf,application/pdf" aria-label="PDF de resultados XRF" @change="handleFileUpload" />
                     <UIcon name="i-heroicons-cloud-arrow-up" class="w-10 h-10 text-slate-400 mb-2" />
                     <p class="text-sm font-semibold text-slate-700">Arrastra o selecciona un archivo</p>
-                    <p class="text-xs text-slate-500 mt-1">PDF del laboratorio o Imagen (XRF)</p>
+                    <p class="text-xs text-slate-500 mt-1">PDF de resultados del laboratorio (XRF)</p>
                   </div>
 
                   <div v-if="uploadedFileName" class="bg-slate-100 p-3 rounded-lg flex items-center justify-between text-sm">
@@ -247,25 +263,13 @@
                       <UIcon name="i-heroicons-document-check" class="text-emerald-500 w-5 h-5 shrink-0" />
                       <span class="truncate font-medium text-slate-700">{{ uploadedFileName }}</span>
                     </div>
-                    <button class="text-rose-500" @click="clearUploadedFile">
+                    <button class="text-rose-500" :disabled="ocrLoading" aria-label="Quitar PDF" @click="clearUploadedFile">
                       <UIcon name="i-heroicons-trash" />
                     </button>
                   </div>
 
-                  <!-- Extraction Options -->
-                  <div class="space-y-3 pt-2">
-                    <div class="flex items-center justify-between">
-                      <span class="text-sm font-medium text-slate-700">Conversión a Base Seca</span>
-                      <UToggle v-model="pdfOptions.convertir" color="emerald" />
-                    </div>
-                    <div v-if="pdfOptions.convertir">
-                      <label class="text-xs text-slate-500 block mb-1">LOI Medido (%) <span class="text-slate-400">(Dejar 0 para estimar)</span></label>
-                      <UInput v-model.number="pdfOptions.loi_manual" type="number" step="0.01" min="0" placeholder="0.0" color="emerald" />
-                    </div>
-                  </div>
-
-                  <UButton block color="emerald" :loading="ocrLoading" @click="processUploadedFile">
-                    Extraer y Evaluar
+                  <UButton block color="success" :loading="ocrLoading" @click="processUploadedFile">
+                    Extraer datos
                   </UButton>
                 </div>
               </UCard>
@@ -277,7 +281,7 @@
                 <template #header>
                   <div class="flex items-center justify-between">
                     <h3 class="font-bold text-slate-800">Resultados de la Extracción</h3>
-                    <UBadge color="emerald" variant="subtle">Extracción Exitosa</UBadge>
+                    <UBadge color="success" variant="subtle">Extracción Exitosa</UBadge>
                   </div>
                 </template>
 
@@ -285,103 +289,118 @@
                 <div v-if="ocrResult.avisos && ocrResult.avisos.length > 0" class="mb-6 space-y-2">
                   <div v-for="aviso in ocrResult.avisos" :key="aviso" class="p-3 bg-amber-50 border-l-4 border-amber-500 text-amber-800 rounded text-sm flex gap-2 items-center">
                     <UIcon name="i-heroicons-exclamation-triangle" class="w-5 h-5 text-amber-600 shrink-0" />
-                    <span>{{ aviso }}</span>
+                    <span>{{ chemicalText(aviso) }}</span>
                   </div>
                 </div>
 
+                <section class="mb-6 text-sm space-y-2">
+                  <h4 class="font-semibold">Datos extraídos al formulario · {{ ocrResult.datos.originales.length }} componentes</h4>
+                  <p>Esta es la composición completa encontrada en el PDF. Los componentes usados por la clasificación también aparecen como campos editables debajo.</p>
+                  <table class="w-full text-left mt-2"><thead><tr><th>Compuesto</th><th>Lectura</th><th>Unidad</th></tr></thead><tbody>
+                    <tr v-for="(o, i) in ocrResult.datos.originales" :key="i"><td>{{ chemicalText(o.compuesto) }}</td><td>{{ o.texto }}</td><td>{{ o.unidad }}</td></tr>
+                  </tbody></table>
+                </section>
+                <details v-if="Object.keys(ocrResult.datos.metadatos || {}).length" class="mb-4 text-sm">
+                  <summary class="font-semibold cursor-pointer">Información del ensayo</summary>
+                  <dl class="mt-2 space-y-1"><div v-for="(valor, campo) in ocrResult.datos.metadatos" :key="campo"><dt class="font-medium">{{ campo }}</dt><dd>{{ valor }}</dd></div></dl>
+                </details>
                 <!-- Form to edit before save -->
                 <form @submit.prevent="saveEvaluation(ocrResult.datos)" class="space-y-6">
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label class="block text-sm font-semibold text-slate-700 mb-1.5">ID Muestra *</label>
-                      <UInput v-model="ocrResult.datos.muestra_id" required color="emerald" />
+                      <UInput v-model="ocrResult.datos.muestra_id" required color="success" />
                     </div>
                     <div>
-                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">CaCO3 (%)</label>
-                      <UInput v-model.number="ocrResult.datos.caco3" type="number" step="0.01" min="0" max="100" color="emerald" />
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">CaCO₃ (%)</label>
+                      <UInput v-model.number="ocrResult.datos.caco3" type="number" step="any" min="0" max="100" color="success" />
                     </div>
                     <div>
                       <label class="block text-sm font-semibold text-slate-700 mb-1.5">CaO (%)</label>
-                      <UInput v-model.number="ocrResult.datos.cao" type="number" step="0.01" min="0" max="100" color="emerald" />
+                      <UInput v-model.number="ocrResult.datos.cao" type="number" step="any" min="0" max="100" color="success" />
                     </div>
                     <div>
                       <label class="block text-sm font-semibold text-slate-700 mb-1.5">MgO (%)</label>
-                      <UInput v-model.number="ocrResult.datos.mgo" type="number" step="0.01" min="0" max="100" color="emerald" />
+                      <UInput v-model.number="ocrResult.datos.mgo" type="number" step="any" min="0" max="100" color="success" />
                     </div>
                     <div>
-                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">SiO2 (%)</label>
-                      <UInput v-model.number="ocrResult.datos.sio2" type="number" step="0.01" min="0" max="100" color="emerald" />
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">SiO₂ (%)</label>
+                      <UInput v-model.number="ocrResult.datos.sio2" type="number" step="any" min="0" max="100" color="success" />
                     </div>
                     <div>
-                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Fe2O3 (%)</label>
-                      <UInput v-model.number="ocrResult.datos.fe2o3" type="number" step="0.01" min="0" max="100" color="emerald" />
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Fe₂O₃ (%)</label>
+                      <UInput v-model.number="ocrResult.datos.fe2o3" type="number" step="any" min="0" max="100" color="success" />
                     </div>
                     <div>
-                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Al2O3 (%)</label>
-                      <UInput v-model.number="ocrResult.datos.al2o3" type="number" step="0.01" min="0" max="100" color="emerald" />
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">Al₂O₃ (%)</label>
+                      <UInput v-model.number="ocrResult.datos.al2o3" type="number" step="any" min="0" max="100" color="success" />
                     </div>
                     <div>
-                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">SO3 (%)</label>
-                      <UInput v-model.number="ocrResult.datos.so3" type="number" step="0.01" min="0" max="100" color="emerald" />
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">SO₃ (%)</label>
+                      <UInput v-model.number="ocrResult.datos.so3" type="number" step="any" min="0" max="100" color="success" />
+                    </div>
+                    <div v-for="f in chemicalFields.filter(f => ['na2o', 'k2o', 'p2o5', 'pb', 'cd', 'as_ppm'].includes(f.key))" :key="f.key">
+                      <label class="block text-sm font-semibold text-slate-700 mb-1.5">{{ f.label }} ({{ f.unit }})</label>
+                      <UInput v-model.number="ocrResult.datos[f.key]" type="number" step="any" min="0" :max="f.unit === '%' ? 100 : undefined" placeholder="Sin dato" color="success" />
                     </div>
                     <div>
                       <label class="block text-sm font-semibold text-slate-700 mb-1.5">DRX Dominante</label>
-                      <USelect v-model="ocrResult.datos.drx" :options="['Calcita', 'Calcita Magnesiana', 'Dolomita']" color="emerald" />
+                      <USelect v-model="ocrResult.datos.drx" :items="drxOptions" color="success" class="w-full" />
                     </div>
                     <div>
                       <label class="block text-sm font-semibold text-slate-700 mb-1.5">Petrografía Dominante</label>
-                      <USelect v-model="ocrResult.datos.petrografia" :options="['Micrítica de grano fino', 'Esparítica de grano grueso']" color="emerald" />
+                      <USelect v-model="ocrResult.datos.petrografia" :items="petrografiaOptions" color="success" class="w-full" />
                     </div>
                   </div>
 
                   <!-- Collapsible Optional tests -->
                   <UAccordion
-                    color="slate"
+                    color="neutral"
                     variant="soft"
-                    :items="[{ label: '🧪 Ensayos adicionales opcionales (Para habilitar más perfiles industriales)', content: 'fields' }]"
+                    :items="[{ label: '🧪 Ensayos adicionales opcionales (Para habilitar más perfiles industriales)', slot: 'fields' }]"
                   >
-                    <template #item>
+                    <template #fields>
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white border border-slate-100 rounded-b-lg">
                         <div>
                           <label class="block text-xs font-semibold text-slate-600 mb-1">Poder Neutralizante PN (%)</label>
-                          <UInput v-model.number="ocrResult.extras.pn" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                          <UInput v-model.number="ocrResult.extras.pn" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                         </div>
                         <div>
                           <label class="block text-xs font-semibold text-slate-600 mb-1">Blancura (%)</label>
-                          <UInput v-model.number="ocrResult.extras.blancura" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                          <UInput v-model.number="ocrResult.extras.blancura" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                         </div>
                         <div>
                           <label class="block text-xs font-semibold text-slate-600 mb-1">Tamaño Partícula (µm)</label>
-                          <UInput v-model.number="ocrResult.extras.tamano_particula" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                          <UInput v-model.number="ocrResult.extras.tamano_particula" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                         </div>
                         <div>
                           <label class="block text-xs font-semibold text-slate-600 mb-1">Humedad (%)</label>
-                          <UInput v-model.number="ocrResult.extras.humedad" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                          <UInput v-model.number="ocrResult.extras.humedad" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                         </div>
                         <div>
                           <label class="block text-xs font-semibold text-slate-600 mb-1">CaO Disponible (%)</label>
-                          <UInput v-model.number="ocrResult.extras.cao_disponible" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                          <UInput v-model.number="ocrResult.extras.cao_disponible" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                         </div>
                         <div>
                           <label class="block text-xs font-semibold text-slate-600 mb-1">CaO Reactivo (%)</label>
-                          <UInput v-model.number="ocrResult.extras.cao_reactivo" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                          <UInput v-model.number="ocrResult.extras.cao_reactivo" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                         </div>
                         <div>
                           <label class="block text-xs font-semibold text-slate-600 mb-1">Resistencia (MPa)</label>
-                          <UInput v-model.number="ocrResult.extras.resistencia" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                          <UInput v-model.number="ocrResult.extras.resistencia" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                         </div>
                         <div>
                           <label class="block text-xs font-semibold text-slate-600 mb-1">Absorción (%)</label>
-                          <UInput v-model.number="ocrResult.extras.absorcion" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                          <UInput v-model.number="ocrResult.extras.absorcion" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                         </div>
                       </div>
                     </template>
                   </UAccordion>
 
                   <div class="flex justify-end gap-3 border-t border-slate-100 pt-6">
-                    <UButton color="slate" variant="ghost" @click="clearOcr">Limpiar</UButton>
-                    <UButton type="submit" color="emerald" icon="i-heroicons-circle-stack" :loading="evalLoading">
-                      Calcular LSF y Registrar Muestra
+                    <UButton color="neutral" variant="ghost" @click="clearOcr">Limpiar</UButton>
+                    <UButton type="submit" color="success" icon="i-heroicons-circle-stack" :loading="evalLoading">
+                      Evaluar y Registrar Muestra
                     </UButton>
                   </div>
                 </form>
@@ -397,7 +416,7 @@
           </div>
 
           <!-- Sub Tab: Manual Form -->
-          <div v-if="subTab === 'manual'" class="max-w-4xl mx-auto">
+          <div v-if="subTab === 'manual'" class="max-w-5xl mx-auto">
             <UCard class="shadow-sm">
               <template #header>
                 <div class="flex items-center gap-2">
@@ -411,117 +430,117 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">ID Muestra *</label>
-                    <UInput v-model="manualForm.id_muestra" required placeholder="Ej: CAR-001" color="emerald" />
+                    <UInput v-model="manualForm.id_muestra" required placeholder="Ej: CAR-001" color="success" />
                   </div>
                   <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">CaCO3 (%)</label>
-                    <UInput v-model.number="manualForm.caco3" type="number" step="0.01" min="0" max="100" placeholder="Ej: 94.8" color="emerald" />
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">CaCO₃ (%)</label>
+                    <UInput v-model.number="manualForm.caco3" type="number" step="any" min="0" max="100" placeholder="Ej: 94.8" color="success" />
                   </div>
                   <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">CaO (%)</label>
-                    <UInput v-model.number="manualForm.cao" type="number" step="0.01" min="0" max="100" placeholder="Ej: 54.1" color="emerald" />
+                    <UInput v-model.number="manualForm.cao" type="number" step="any" min="0" max="100" placeholder="Ej: 54.1" color="success" />
                   </div>
                   <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">MgO (%)</label>
-                    <UInput v-model.number="manualForm.mgo" type="number" step="0.01" min="0" max="100" placeholder="Ej: 0.8" color="emerald" />
+                    <UInput v-model.number="manualForm.mgo" type="number" step="any" min="0" max="100" placeholder="Ej: 0.8" color="success" />
                   </div>
                   <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">SiO2 (%)</label>
-                    <UInput v-model.number="manualForm.sio2" type="number" step="0.01" min="0" max="100" placeholder="Ej: 6.4" color="emerald" />
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">SiO₂ (%)</label>
+                    <UInput v-model.number="manualForm.sio2" type="number" step="any" min="0" max="100" placeholder="Ej: 6.4" color="success" />
                   </div>
                   <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Fe2O3 (%)</label>
-                    <UInput v-model.number="manualForm.fe2o3" type="number" step="0.01" min="0" max="100" placeholder="Ej: 1.9" color="emerald" />
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Fe₂O₃ (%)</label>
+                    <UInput v-model.number="manualForm.fe2o3" type="number" step="any" min="0" max="100" placeholder="Ej: 1.9" color="success" />
                   </div>
                   <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Al2O3 (%)</label>
-                    <UInput v-model.number="manualForm.al2o3" type="number" step="0.01" min="0" max="100" placeholder="Ej: 2.8" color="emerald" />
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Al₂O₃ (%)</label>
+                    <UInput v-model.number="manualForm.al2o3" type="number" step="any" min="0" max="100" placeholder="Ej: 2.8" color="success" />
                   </div>
                   <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">SO3 (%)</label>
-                    <UInput v-model.number="manualForm.so3" type="number" step="0.01" min="0" max="100" placeholder="Ej: 2.4" color="emerald" />
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">SO₃ (%)</label>
+                    <UInput v-model.number="manualForm.so3" type="number" step="any" min="0" max="100" placeholder="Ej: 2.4" color="success" />
                   </div>
                   <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Na2O (%)</label>
-                    <UInput v-model.number="manualForm.na2o" type="number" step="0.01" min="0" max="100" placeholder="0.0" color="emerald" />
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">Na₂O (%)</label>
+                    <UInput v-model.number="manualForm.na2o" type="number" step="any" min="0" max="100" placeholder="Sin dato" color="success" />
                   </div>
                   <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">K2O (%)</label>
-                    <UInput v-model.number="manualForm.k2o" type="number" step="0.01" min="0" max="100" placeholder="0.0" color="emerald" />
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">K₂O (%)</label>
+                    <UInput v-model.number="manualForm.k2o" type="number" step="any" min="0" max="100" placeholder="Sin dato" color="success" />
                   </div>
                   <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">P2O5 (%)</label>
-                    <UInput v-model.number="manualForm.p2o5" type="number" step="0.01" min="0" max="100" placeholder="0.0" color="emerald" />
+                    <label class="block text-sm font-semibold text-slate-700 mb-1.5">P₂O₅ (%)</label>
+                    <UInput v-model.number="manualForm.p2o5" type="number" step="any" min="0" max="100" placeholder="Sin dato" color="success" />
                   </div>
                   <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">Plomo - Pb (ppm)</label>
-                    <UInput v-model.number="manualForm.pb" type="number" step="0.01" min="0" placeholder="0.0" color="emerald" />
+                    <UInput v-model.number="manualForm.pb" type="number" step="any" min="0" placeholder="Sin dato" color="success" />
                   </div>
                   <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">Cadmio - Cd (ppm)</label>
-                    <UInput v-model.number="manualForm.cd" type="number" step="0.01" min="0" placeholder="0.0" color="emerald" />
+                    <UInput v-model.number="manualForm.cd" type="number" step="any" min="0" placeholder="Sin dato" color="success" />
                   </div>
                   <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">Arsénico - As (ppm)</label>
-                    <UInput v-model.number="manualForm.as_ppm" type="number" step="0.01" min="0" placeholder="0.0" color="emerald" />
+                    <UInput v-model.number="manualForm.as_ppm" type="number" step="any" min="0" placeholder="Sin dato" color="success" />
                   </div>
                   <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">Fase Mineral Dominante (DRX)</label>
-                    <USelect v-model="manualForm.drx" :options="['Calcita', 'Calcita Magnesiana', 'Dolomita']" color="emerald" />
+                    <USelect v-model="manualForm.drx" :items="drxOptions" color="success" class="w-full" />
                   </div>
                   <div>
                     <label class="block text-sm font-semibold text-slate-700 mb-1.5">Textura Dominante (Petrografía)</label>
-                    <USelect v-model="manualForm.petrografia" :options="['Micrítica de grano fino', 'Esparítica de grano grueso']" color="emerald" />
+                    <USelect v-model="manualForm.petrografia" :items="petrografiaOptions" color="success" class="w-full" />
                   </div>
                 </div>
 
                 <!-- Accordion for manual extras -->
                 <UAccordion
-                  color="slate"
+                  color="neutral"
                   variant="soft"
-                  :items="[{ label: '🧪 Ensayos adicionales opcionales (Para habilitar más perfiles industriales)', content: 'fields' }]"
+                  :items="[{ label: '🧪 Ensayos adicionales opcionales (Para habilitar más perfiles industriales)', slot: 'fields' }]"
                 >
-                  <template #item>
+                  <template #fields>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white border border-slate-100 rounded-b-lg">
                       <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Poder Neutralizante PN (%)</label>
-                        <UInput v-model.number="manualForm.extras.pn" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                        <UInput v-model.number="manualForm.extras.pn" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                       </div>
                       <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Blancura (%)</label>
-                        <UInput v-model.number="manualForm.extras.blancura" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                        <UInput v-model.number="manualForm.extras.blancura" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                       </div>
                       <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Tamaño Partícula (µm)</label>
-                        <UInput v-model.number="manualForm.extras.tamano_particula" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                        <UInput v-model.number="manualForm.extras.tamano_particula" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                       </div>
                       <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Humedad (%)</label>
-                        <UInput v-model.number="manualForm.extras.humedad" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                        <UInput v-model.number="manualForm.extras.humedad" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                       </div>
                       <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">CaO Disponible (%)</label>
-                        <UInput v-model.number="manualForm.extras.cao_disponible" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                        <UInput v-model.number="manualForm.extras.cao_disponible" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                       </div>
                       <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">CaO Reactivo (%)</label>
-                        <UInput v-model.number="manualForm.extras.cao_reactivo" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                        <UInput v-model.number="manualForm.extras.cao_reactivo" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                       </div>
                       <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Resistencia (MPa)</label>
-                        <UInput v-model.number="manualForm.extras.resistencia" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                        <UInput v-model.number="manualForm.extras.resistencia" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                       </div>
                       <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Absorción (%)</label>
-                        <UInput v-model.number="manualForm.extras.absorcion" type="number" step="0.01" min="0" placeholder="Opcional" color="emerald" />
+                        <UInput v-model.number="manualForm.extras.absorcion" type="number" step="any" min="0" placeholder="Opcional" color="success" />
                       </div>
                     </div>
                   </template>
                 </UAccordion>
 
                 <div class="flex justify-end gap-3 border-t border-slate-100 pt-6">
-                  <UButton type="submit" color="emerald" icon="i-heroicons-check-circle" :loading="evalLoading">
-                    Calcular LSF y Evaluar Muestra
+                  <UButton type="submit" color="success" icon="i-heroicons-check-circle" :loading="evalLoading">
+                    Evaluar y Registrar Muestra
                   </UButton>
                 </div>
               </form>
@@ -542,16 +561,16 @@
                 <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600 space-y-2">
                   <p class="font-semibold text-slate-800">Columnas recomendadas en el archivo:</p>
                   <p class="font-mono text-xs bg-white border border-slate-200 p-2 rounded block">
-                    ID Muestra, CaCO3, CaO, MgO, SiO2, Fe2O3, Al2O3, SO3, Na2O, K2O
+                    ID Muestra, CaCO₃, CaO, MgO, SiO₂, Fe₂O₃, Al₂O₃, SO₃, Na₂O, K₂O
                   </p>
-                  <p>La aplicación procesará cada fila, estimará LOI y módulos de clinker, y guardará todo automáticamente en la base de datos.</p>
+                  <p>La aplicación validará todas las filas y guardará sus evaluaciones con la base seleccionada. Los campos ausentes permanecerán sin dato.</p>
                 </div>
 
                 <div class="border-2 border-dashed border-slate-200 rounded-lg p-8 hover:border-emerald-500 transition-colors flex flex-col items-center justify-center text-center cursor-pointer relative bg-slate-50/50">
-                  <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" @change="handleBatchFile" />
+                  <input type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="handleBatchFile" />
                   <UIcon name="i-heroicons-document-text" class="w-12 h-12 text-slate-400 mb-2" />
                   <p class="text-sm font-semibold text-slate-700">Arrastra o selecciona tu Excel/CSV</p>
-                  <p class="text-xs text-slate-500 mt-1">Soporta formatos .xlsx, .xls, .csv</p>
+                  <p class="text-xs text-slate-500 mt-1">Soporta formatos .xlsx y .csv</p>
                 </div>
 
                 <div v-if="batchFileName" class="bg-slate-100 p-3 rounded-lg flex items-center justify-between text-sm">
@@ -562,7 +581,7 @@
                 </div>
 
                 <div class="flex justify-end pt-4">
-                  <UButton color="emerald" :loading="batchLoading" :disabled="!batchFile" @click="submitBatchFile">
+                  <UButton color="success" :loading="batchLoading" :disabled="!batchFile" @click="submitBatchFile">
                     Procesar y Guardar Lote
                   </UButton>
                 </div>
@@ -580,13 +599,13 @@
 
                 <div class="flex flex-wrap items-center gap-3">
                   <!-- Search bar -->
-                  <UInput v-model="searchQuery" icon="i-heroicons-magnifying-glass" placeholder="Buscar ID..." color="emerald" class="w-64" />
+                  <UInput v-model="searchQuery" icon="i-heroicons-magnifying-glass" placeholder="Buscar ID..." color="success" class="w-64" />
 
                   <!-- Filter status -->
-                  <USelect v-model="filterStatus" :options="['Todos', 'APTO', 'NO APTO']" color="emerald" class="w-32" />
+                  <USelect v-model="filterStatus" :items="['Todos', 'Con usos aptos', 'Con incumplimientos', 'Con ensayos pendientes', 'Históricos']" color="success" class="w-56" />
 
                   <!-- Export Button -->
-                  <UButton color="emerald" variant="outline" icon="i-heroicons-document-arrow-down" @click="downloadExcel">
+                  <UButton color="success" variant="outline" icon="i-heroicons-document-arrow-down" @click="downloadExcel">
                     Excel
                   </UButton>
                 </div>
@@ -603,11 +622,11 @@
                 <thead>
                   <tr class="border-b border-slate-100 bg-slate-50/50 text-slate-500 font-semibold">
                     <th class="py-3 px-4">ID Muestra</th>
-                    <th class="py-3 px-4">CaCO3 (%)</th>
+                    <th class="py-3 px-4">CaCO₃ (%)</th>
                     <th class="py-3 px-4">CaO (%)</th>
-                    <th class="py-3 px-4">SiO2 (%)</th>
-                    <th class="py-3 px-4">LSF</th>
-                    <th class="py-3 px-4">Veredicto Cemento</th>
+                    <th class="py-3 px-4">SiO₂ (%)</th>
+
+                    <th class="py-3 px-4">Resultados por uso</th>
                     <th class="py-3 px-4">Fecha Registro</th>
                     <th class="py-3 px-4 text-right">Acciones</th>
                   </tr>
@@ -615,20 +634,18 @@
                 <tbody class="divide-y divide-slate-100">
                   <tr v-for="s in filteredSamples" :key="s.id_muestra" class="hover:bg-slate-50/80 transition-colors cursor-pointer" @click="viewSampleDetails(s)">
                     <td class="py-3 px-4 font-bold text-slate-900">{{ s.id_muestra }}</td>
-                    <td class="py-3 px-4">{{ s.caco3 }}%</td>
-                    <td class="py-3 px-4">{{ s.cao }}%</td>
-                    <td class="py-3 px-4">{{ s.sio2 }}%</td>
-                    <td class="py-3 px-4 font-mono">{{ s.lsf?.toFixed(3) }}</td>
+                    <td class="py-3 px-4">{{ showNumber(s.caco3, '%') }}</td>
+                    <td class="py-3 px-4">{{ showNumber(s.cao, '%') }}</td>
+                    <td class="py-3 px-4">{{ showNumber(s.sio2, '%') }}</td>
+
                     <td class="py-3 px-4">
-                      <span :class="['px-2 py-0.5 rounded-full text-xs font-bold', s.estado_eval === 'APTO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200']">
-                        {{ s.estado_eval }}
-                      </span>
+                      <span>{{ summaryText(s) }}</span><span v-if="s.version_evaluacion !== 2" class="block text-xs text-amber-700">Histórico · evaluación anterior</span>
                     </td>
                     <td class="py-3 px-4 text-xs text-slate-400">{{ s.fecha_registro }}</td>
                     <td class="py-3 px-4 text-right" @click.stop>
                       <div class="flex justify-end gap-1">
-                        <UButton color="slate" variant="ghost" icon="i-heroicons-eye" @click="viewSampleDetails(s)" />
-                        <UButton color="rose" variant="ghost" icon="i-heroicons-trash" @click="confirmDeleteSample(s.id_muestra)" />
+                        <UButton color="neutral" variant="ghost" icon="i-heroicons-eye" aria-label="Ver detalle" @click="viewSampleDetails(s)" />
+                        <UButton color="error" variant="ghost" icon="i-heroicons-trash" aria-label="Eliminar muestra" @click="confirmDeleteSample(s.id_muestra)" />
                       </div>
                     </td>
                   </tr>
@@ -654,177 +671,67 @@
                 <p class="text-xs text-slate-400">Registrado el: {{ selectedSample?.fecha_registro }}</p>
               </div>
             </div>
-            <UButton color="slate" variant="ghost" icon="i-heroicons-x-mark" @click="drawerOpen = false" />
+            <UButton color="neutral" variant="ghost" icon="i-heroicons-x-mark" aria-label="Cerrar detalle" @click="drawerOpen = false" />
           </div>
 
           <!-- Drawer Content -->
           <div class="flex-1 overflow-y-auto p-6 space-y-6">
-            <!-- Main Veredicto banner -->
-            <div :class="['p-4 rounded-xl border flex items-center gap-3', selectedSample?.estado_eval === 'APTO' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800']">
-              <UIcon :name="selectedSample?.estado_eval === 'APTO' ? 'i-heroicons-trophy' : 'i-heroicons-x-circle'" class="w-8 h-8 shrink-0" />
-              <div>
-                <p class="font-bold text-sm">
-                  {{ selectedSample?.id_muestra }} — {{ selectedSample?.estado_eval === 'APTO' ? 'APTO para Cemento Portland' : 'NO APTO para Cemento Portland' }}
-                </p>
-                <p class="text-xs mt-0.5 opacity-90">Evaluado bajo normas internacionales ASTM C150 / NTC 321</p>
-              </div>
+            <div class="p-4 rounded-xl border bg-slate-50 space-y-2">
+              <p class="font-semibold">{{ summaryText(selectedSample) }}</p>
+              <p v-if="selectedSample?.version_evaluacion !== 2" class="text-sm text-amber-800">Histórico · evaluación anterior. Se conserva sin recalcular. Veredicto anterior: {{ selectedSample?.estado_eval || 'No disponible' }}.</p>
+              <p class="text-xs text-slate-600">Cumplimiento de los criterios configurados; no constituye certificación normativa.</p>
             </div>
-
-            <!-- Tabs of calculations -->
-            <UTabs :items="[
-              { label: '📊 Química y Módulos', slot: 'quimica' },
-              { label: '🔥 Clinker (Bogue)', slot: 'clinker' },
-              { label: '🏭 17 Perfiles de Uso', slot: 'perfiles' }
-            ]">
-              <!-- Química y Módulos Tab -->
-              <template #quimica>
-                <div class="py-4 space-y-6">
-                  <!-- Grid of metrics -->
-                  <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <p class="text-xs font-semibold text-slate-400">CaCO3 (%)</p>
-                      <p class="text-xl font-extrabold text-slate-800 mt-1">{{ selectedSample?.caco3 }}%</p>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <p class="text-xs font-semibold text-slate-400">CaO (%)</p>
-                      <p class="text-xl font-extrabold text-slate-800 mt-1">{{ selectedSample?.cao }}%</p>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <p class="text-xs font-semibold text-slate-400">MgO (%)</p>
-                      <p class="text-xl font-extrabold text-slate-800 mt-1">{{ selectedSample?.mgo }}%</p>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <p class="text-xs font-semibold text-slate-400">SiO2 (%)</p>
-                      <p class="text-xl font-extrabold text-slate-800 mt-1">{{ selectedSample?.sio2 }}%</p>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <p class="text-xs font-semibold text-slate-400">LOI (%)</p>
-                      <p class="text-xl font-extrabold text-slate-800 mt-1">{{ selectedSample?.loi?.toFixed(2) }}%</p>
-                    </div>
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                      <p class="text-xs font-semibold text-slate-400">Res. Insoluble (%)</p>
-                      <p class="text-xl font-extrabold text-slate-800 mt-1">{{ selectedSample?.res_insol?.toFixed(2) }}%</p>
-                    </div>
-                  </div>
-
-                  <div class="border-t border-slate-100 pt-4 space-y-3">
-                    <h4 class="font-bold text-slate-800">Módulos del Horno</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div class="border border-slate-100 rounded-lg p-3">
-                        <p class="text-xs text-slate-400">Factor de Saturación de Cal (LSF)</p>
-                        <p class="text-2xl font-black text-slate-800 mt-0.5">{{ selectedSample?.lsf?.toFixed(3) }}</p>
-                      </div>
-                      <div class="border border-slate-100 rounded-lg p-3">
-                        <p class="text-xs text-slate-400">Módulo de Sílice (SM)</p>
-                        <p class="text-2xl font-black text-slate-800 mt-0.5">{{ selectedSample?.sm?.toFixed(3) }}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Geological Info -->
-                  <div class="border-t border-slate-100 pt-4 space-y-3">
-                    <h4 class="font-bold text-slate-800">Interpretación Geoquímica (Calizas del Cesar)</h4>
-                    <div class="space-y-2">
-                      <p class="text-xs font-medium text-slate-500">Textura: <b class="text-slate-800">{{ selectedSample?.petrografia }}</b>, Mineral dominante: <b class="text-slate-800">{{ selectedSample?.drx }}</b></p>
-                      <div v-if="getGeologyWarnings(selectedSample).length > 0" class="space-y-1.5">
-                        <div v-for="w in getGeologyWarnings(selectedSample)" :key="w" class="p-2.5 bg-slate-50 text-slate-700 text-xs rounded border border-slate-100 flex gap-2">
-                          <span>⚠️</span>
-                          <span>{{ w }}</span>
-                        </div>
-                      </div>
-                      <div v-else class="p-2 bg-emerald-50 text-emerald-800 border border-emerald-100 text-xs rounded">
-                        La muestra presenta óptimos rangos recomendados para calizas de alta calidad.
-                      </div>
-                    </div>
-                  </div>
+            <section class="space-y-3">
+              <h4 class="font-bold">Datos del análisis</h4>
+              <p class="text-sm">Base declarada: {{ selectedSample?.contexto?.base || 'No registrada' }} · Base de trazas: {{ selectedSample?.contexto?.base_trazas || 'No registrada' }}</p>
+              <p v-if="selectedSample?.contexto?.convertir" class="text-sm">Conversión aplicada a base seca. LOI: {{ showNumber(selectedSample.contexto.loi, '%') }}.</p>
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left"><thead><tr><th>Parámetro</th><th>Valor usado</th><th>Procedencia</th></tr></thead><tbody>
+                  <tr v-for="f in chemicalFields" :key="f.key" class="border-t border-slate-100"><td class="py-2">{{ f.label }}</td><td>{{ showNumber(selectedSample?.[f.key], f.unit) }}</td><td>{{ selectedSample?.contexto?.procedencia?.[f.key] || 'No registrada' }}</td></tr>
+                </tbody></table>
+              </div>
+              <p class="text-sm">DRX: {{ selectedSample?.drx || 'Sin dato' }} · Petrografía: {{ selectedSample?.petrografia || 'Sin dato' }}</p>
+              <section v-if="selectedSample?.contexto?.originales?.length" class="text-sm space-y-2">
+                <h4 class="font-semibold">Composición original completa · {{ selectedSample.contexto.originales.length }} componentes</h4>
+                <p>Valores guardados del informe. Los componentes sin criterio configurado se conservan, pero no generan un dictamen.</p>
+                <table class="w-full text-left"><thead><tr><th>Compuesto</th><th>Lectura</th><th>Unidad</th></tr></thead><tbody><tr v-for="(o, i) in selectedSample.contexto.originales" :key="i"><td>{{ chemicalText(o.compuesto) }}</td><td>{{ o.texto }}</td><td>{{ o.unidad }}</td></tr></tbody></table>
+              </section>
+              <details v-if="Object.keys(selectedSample?.contexto?.metadatos || {}).length" class="text-sm">
+                <summary class="font-semibold cursor-pointer">Información del ensayo</summary>
+                <dl class="mt-2 space-y-1"><div v-for="(valor, campo) in selectedSample.contexto.metadatos" :key="campo"><dt class="font-medium">{{ campo }}</dt><dd>{{ valor }}</dd></div></dl>
+              </details>
+              <details v-if="selectedSample?.contexto?.texto_reporte" class="text-sm"><summary class="cursor-pointer">Texto íntegro extraído del informe</summary><pre class="whitespace-pre-wrap text-xs mt-2">{{ selectedSample.contexto.texto_reporte }}</pre></details>
+              <p class="text-xs text-slate-600">LSF: {{ showNumber(selectedSample?.lsf) }} · SM: {{ showNumber(selectedSample?.sm) }}. Relaciones calculadas; no determinan por sí solas la aptitud de la roca.</p>
+              <p v-if="selectedSample?.version_evaluacion === 2" class="text-xs text-slate-500">Las fases de Bogue no se presentan: corresponden al clínker y no a esta evaluación de roca caliza.</p>
+              <details v-else class="text-sm"><summary>Fases históricas de Bogue (sin recalcular)</summary><p>C₃S: {{ showNumber(selectedSample?.c3s, '%') }} · C₂S: {{ showNumber(selectedSample?.c2s, '%') }} · C₃A: {{ showNumber(selectedSample?.c3a, '%') }} · C₄AF: {{ showNumber(selectedSample?.c4af, '%') }}</p></details>
+            </section>
+            <section class="space-y-3">
+              <h4 class="font-bold">Perfiles de uso industrial</h4>
+              <p class="text-xs text-slate-600">“Requiere ensayos” aparece cuando falta un valor numérico exigido. Los valores calculados se identifican por su procedencia y las comprobaciones adicionales se muestran como observaciones.</p>
+              <p v-if="!selectedSample?.dictamenes?.length" class="text-sm">Dictámenes no disponibles.</p>
+              <details v-for="p in selectedSample?.dictamenes || []" :key="p.nombre" class="p-3 border rounded-lg text-sm">
+                <summary class="cursor-pointer font-semibold">{{ p.nombre }} · {{ p.estado }}</summary>
+                <p class="mt-2">{{ chemicalText(p.aplicacion) }}</p><p class="mt-2">{{ chemicalText(p.razon) }}</p>
+                <p class="text-xs text-slate-500 mt-1">Referencia: {{ p.norma }}</p>
+                <div v-if="p.criterios?.length" class="overflow-x-auto mt-3">
+                  <table class="w-full text-left text-xs"><thead><tr><th>Criterio</th><th>Valor</th><th>Límite</th><th>Procedencia</th><th>Resultado</th></tr></thead><tbody>
+                    <tr v-for="(c, i) in p.criterios" :key="i" class="border-t"><td class="py-2 pr-2">{{ chemicalText(c.etiqueta) }}</td><td>{{ showNumber(c.valor, c.unidad) }}</td><td>{{ c.op }} {{ showNumber(c.limite, c.unidad) }}</td><td>{{ c.procedencia || 'No registrada' }}</td><td>{{ c.estado }}</td></tr>
+                  </tbody></table>
                 </div>
-              </template>
-
-              <!-- Clinker Bogue Tab -->
-              <template #clinker>
-                <div class="py-4 space-y-6">
-                  <p class="text-sm text-slate-600">Composición potencial de fases minerales del cemento obtenida mediante ecuaciones estequiométricas de Bogue:</p>
-
-                  <div class="space-y-4">
-                    <!-- Alita -->
-                    <div class="space-y-1">
-                      <div class="flex justify-between text-sm font-semibold">
-                        <span class="text-slate-700">Alita (C3S)</span>
-                        <span class="text-emerald-600">{{ selectedSample?.c3s }}%</span>
-                      </div>
-                      <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div class="bg-emerald-500 h-2 rounded-full" :style="`width: ${Math.min(selectedSample?.c3s || 0, 100)}%`"></div>
-                      </div>
-                      <p class="text-xs text-slate-400">Favorece y controla la resistencia mecánica inicial (temprana) del hormigón.</p>
-                    </div>
-
-                    <!-- Belita -->
-                    <div class="space-y-1">
-                      <div class="flex justify-between text-sm font-semibold">
-                        <span class="text-slate-700">Belita (C2S)</span>
-                        <span class="text-emerald-600">{{ selectedSample?.c2s }}%</span>
-                      </div>
-                      <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div class="bg-emerald-500 h-2 rounded-full" :style="`width: ${Math.min(selectedSample?.c2s || 0, 100)}%`"></div>
-                      </div>
-                      <p class="text-xs text-slate-400">Aporta a la ganancia de resistencia a largo plazo (tardía).</p>
-                    </div>
-
-                    <!-- Aluminato Tricálcico -->
-                    <div class="space-y-1">
-                      <div class="flex justify-between text-sm font-semibold">
-                        <span class="text-slate-700">Aluminato Tricálcico (C3A)</span>
-                        <span class="text-amber-600">{{ selectedSample?.c3a }}%</span>
-                      </div>
-                      <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div class="bg-amber-500 h-2 rounded-full" :style="`width: ${Math.min(selectedSample?.c3a || 0, 100)}%`"></div>
-                      </div>
-                      <p class="text-xs text-slate-400">Reacción ultra rápida con agua, gobierna los tiempos de fraguado inicial.</p>
-                    </div>
-
-                    <!-- Ferritoaluminato Tetracálcico -->
-                    <div class="space-y-1">
-                      <div class="flex justify-between text-sm font-semibold">
-                        <span class="text-slate-700">Ferritoaluminato Tetracálcico (C4AF)</span>
-                        <span class="text-blue-600">{{ selectedSample?.c4af }}%</span>
-                      </div>
-                      <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                        <div class="bg-blue-500 h-2 rounded-full" :style="`width: ${Math.min(selectedSample?.c4af || 0, 100)}%`"></div>
-                      </div>
-                      <p class="text-xs text-slate-400">Funciona como fundente principal dentro del horno reduciendo temperaturas.</p>
-                    </div>
-                  </div>
-                </div>
-              </template>
-
-              <!-- 17 Industrial Profiles Tab -->
-              <template #perfiles>
-                <div class="py-4 space-y-4">
-                  <p class="text-sm text-slate-600">Dictamen sobre 17 perfiles de uso industrial para esta caliza:</p>
-
-                  <div class="space-y-3">
-                    <div v-for="p in selectedSample?.dictamenes" :key="p.nombre" class="p-4 border border-slate-100 rounded-xl hover:shadow-sm transition-shadow">
-                      <div class="flex items-start justify-between gap-4">
-                        <div>
-                          <h5 class="font-bold text-sm text-slate-800">{{ p.nombre }}</h5>
-                          <p class="text-xs text-slate-500 mt-0.5 leading-tight">{{ p.aplicacion }}</p>
-                          <p class="text-xs text-slate-700 mt-2 italic">“{{ p.razon }}”</p>
-                          <p class="text-3xs text-slate-400 mt-1">Norma reguladora: {{ p.norma }}</p>
-                        </div>
-                        <span :class="[
-                          'px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border shrink-0',
-                          p.estado === 'Apto' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                          p.estado === 'No Apto' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                          'bg-amber-50 text-amber-700 border-amber-200'
-                        ]">
-                          {{ p.estado }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </template>
-            </UTabs>
+                <ul v-if="p.pendientes?.length" class="list-disc pl-5 mt-2 text-amber-800"><li v-for="(pendiente, i) in p.pendientes" :key="i">{{ chemicalText(pendiente) }}</li></ul>
+                <div v-if="p.observaciones?.length" class="mt-2 text-slate-600"><p class="font-medium">Observaciones recomendadas:</p><ul class="list-disc pl-5"><li v-for="(observacion, i) in p.observaciones" :key="i">{{ chemicalText(observacion) }}</li></ul></div>
+              </details>
+            </section>
+            <section class="space-y-3 border-t pt-4">
+              <h4 class="font-bold">PDF de evidencia</h4>
+              <p class="text-sm">Un PDF por muestra, hasta 10 MiB. Se conserva como respaldo; no interviene en el análisis.</p>
+              <p v-if="selectedSample?.evidencia" class="text-sm">{{ selectedSample.evidencia.nombre }} · {{ selectedSample.evidencia.fecha }} <a :href="`${apiBase}/historial/${encodeURIComponent(selectedSample.id_muestra)}/evidencia`" target="_blank" rel="noopener" class="text-emerald-700 underline">Descargar PDF</a></p>
+              <label class="block text-sm">Seleccionar evidencia PDF<input :key="selectedSample?.id_muestra" type="file" accept=".pdf,application/pdf" class="block mt-1" @change="selectEvidence" /></label>
+              <p v-if="evidenceFile" class="text-sm">Archivo seleccionado: {{ evidenceFile.name }}</p>
+              <label class="flex gap-2 text-sm"><input v-model="evidenceConfirmed" type="checkbox" /> Confirmo que el documento corresponde a esta muestra.</label>
+              <label v-if="selectedSample?.evidencia" class="flex gap-2 text-sm"><input v-model="replaceEvidence" type="checkbox" /> Confirmo reemplazar la evidencia existente.</label>
+              <UButton :disabled="!evidenceFile || !evidenceConfirmed || (!!selectedSample?.evidencia && !replaceEvidence)" :loading="evidenceLoading" @click="uploadEvidence">{{ selectedSample?.evidencia ? 'Reemplazar evidencia' : 'Adjuntar evidencia' }}</UButton>
+            </section>
           </div>
         </div>
       </template>
@@ -837,16 +744,16 @@
           <h3 class="font-bold text-lg text-slate-900">¿Estás seguro de eliminar esta muestra?</h3>
           <p class="text-sm text-slate-600">Esta acción es irreversible y eliminará de forma permanente el registro "{{ sampleToDelete }}" de la base de datos SQLite.</p>
           <div class="flex justify-end gap-3 pt-2">
-            <UButton color="slate" variant="ghost" @click="deleteModalOpen = false">Cancelar</UButton>
-            <UButton color="rose" :loading="deleteLoading" @click="executeDeleteSample">Eliminar Permanentemente</UButton>
+            <UButton color="neutral" variant="ghost" @click="deleteModalOpen = false">Cancelar</UButton>
+            <UButton color="error" :loading="deleteLoading" @click="executeDeleteSample">Eliminar Permanentemente</UButton>
           </div>
         </div>
       </template>
     </UModal>
 
     <!-- NOTIFICATIONS PROVIDER FOR TOASTS -->
-    <UNotifications />
-  </div>
+
+  </div></UApp>
 </template>
 
 <script setup>
@@ -868,10 +775,18 @@ const uploadedFile = ref(null)
 const uploadedFileName = ref('')
 const ocrLoading = ref(false)
 const ocrResult = ref(null)
-const pdfOptions = ref({
-  convertir: true,
-  loi_manual: 0
-})
+const baseOptions = [{ label: 'Automática', value: 'desconocida' }, { label: 'Seca', value: 'seca' }, { label: 'Calcinada', value: 'calcinada' }]
+const drxOptions = [{ label: 'Sin dato', value: null }, 'Calcita', 'Calcita Magnesiana', 'Dolomita']
+const petrografiaOptions = [{ label: 'Sin dato', value: null }, 'Micrítica de grano fino', 'Esparítica de grano grueso']
+const newContext = () => ({ base: 'desconocida', base_trazas: 'desconocida', convertir: false, estimar_loi: false, loi: null })
+const contexts = ref({ pdf: newContext(), manual: newContext(), batch: newContext() })
+const analysisOptions = computed(() => contexts.value[subTab.value])
+function evaluationContext(tab, originales = []) {
+  const c = contexts.value[tab]
+  return { ...c, originales, loi: c.loi === '' ? null : c.loi,
+    convertir: c.base === 'calcinada' && c.convertir,
+    estimar_loi: c.base === 'calcinada' && c.convertir && c.estimar_loi && (c.loi == null || c.loi === '') }
+}
 
 // Manual Form State
 const manualForm = ref({
@@ -889,8 +804,8 @@ const manualForm = ref({
   pb: null,
   cd: null,
   as_ppm: null,
-  drx: 'Calcita',
-  petrografia: 'Micrítica de grano fino',
+  drx: null,
+  petrografia: null,
   extras: {
     pn: null,
     blancura: null,
@@ -927,7 +842,11 @@ const toast = useToast()
 const filteredSamples = computed(() => {
   return samples.value.filter(s => {
     const matchesSearch = s.id_muestra.toLowerCase().includes(searchQuery.value.toLowerCase())
-    const matchesStatus = filterStatus.value === 'Todos' || s.estado_eval === filterStatus.value
+    const matchesStatus = filterStatus.value === 'Todos' ||
+      (filterStatus.value === 'Con usos aptos' && s.resumen?.aptos > 0) ||
+      (filterStatus.value === 'Con incumplimientos' && s.resumen?.no_aptos > 0) ||
+      (filterStatus.value === 'Con ensayos pendientes' && s.resumen?.pendientes > 0) ||
+      (filterStatus.value === 'Históricos' && s.version_evaluacion !== 2)
     return matchesSearch && matchesStatus
   })
 })
@@ -946,7 +865,7 @@ async function fetchHistorial() {
     toast.add({
       title: 'Error de Red',
       description: 'No se pudo conectar con la API. Verifica que el servidor esté corriendo.',
-      color: 'rose'
+      color: 'error'
     })
   }
 }
@@ -954,7 +873,14 @@ async function fetchHistorial() {
 // Upload handlers
 function handleFileUpload(event) {
   const file = event.target.files[0]
+  if (file && !file.name.toLowerCase().endsWith('.pdf')) {
+    clearUploadedFile()
+    toast.add({ title: 'Selecciona un PDF de resultados', color: 'error' })
+    event.target.value = ''
+    return
+  }
   if (file) {
+    clearOcr()
     uploadedFile.value = file
     uploadedFileName.value = file.name
   }
@@ -972,17 +898,13 @@ function clearOcr() {
 
 async function processUploadedFile() {
   if (!uploadedFile.value) {
-    toast.add({ title: 'Archivo faltante', description: 'Por favor arrastra o selecciona un archivo primero.', color: 'amber' })
+    toast.add({ title: 'Archivo faltante', description: 'Por favor arrastra o selecciona un archivo primero.', color: 'warning' })
     return
   }
 
   ocrLoading.value = true
   const formData = new FormData()
   formData.append('file', uploadedFile.value)
-  formData.append('convertir', pdfOptions.value.convertir ? 'true' : 'false')
-  if (pdfOptions.value.convertir && pdfOptions.value.loi_manual) {
-    formData.append('loi_manual', String(pdfOptions.value.loi_manual))
-  }
 
   try {
     const data = await $fetch(`${apiBase}/procesar-pdf`, {
@@ -990,24 +912,29 @@ async function processUploadedFile() {
       body: formData
     })
 
+    if (data.es_base_calcinada) contexts.value.pdf = { base: 'calcinada', base_trazas: 'calcinada', convertir: true, estimar_loi: true, loi: null }
+
     ocrResult.value = {
       datos: {
         muestra_id: data.datos.muestra_id || '',
-        caco3: data.datos.caco3 || 0.0,
-        cao: data.datos.cao || 0.0,
-        mgo: data.datos.mgo || 0.0,
-        sio2: data.datos.sio2 || 0.0,
-        fe2o3: data.datos.fe2o3 || 0.0,
-        al2o3: data.datos.al2o3 || 0.0,
-        so3: data.datos.so3 || 0.0,
-        na2o: data.datos.na2o || 0.0,
-        k2o: data.datos.k2o || 0.0,
-        p2o5: data.datos.p2o5 || 0.0,
-        pb: data.datos.pb || 0.0,
-        cd: data.datos.cd || 0.0,
-        as_ppm: data.datos.as_ppm || 0.0,
-        drx: 'Calcita',
-        petrografia: 'Micrítica de grano fino'
+        originales: data.datos.originales || [],
+        metadatos: data.datos.metadatos || {},
+        texto_reporte: data.datos.texto_reporte || data.texto_crudo || '',
+        caco3: data.datos.caco3 ?? null,
+        cao: data.datos.cao ?? null,
+        mgo: data.datos.mgo ?? null,
+        sio2: data.datos.sio2 ?? null,
+        fe2o3: data.datos.fe2o3 ?? null,
+        al2o3: data.datos.al2o3 ?? null,
+        so3: data.datos.so3 ?? null,
+        na2o: data.datos.na2o ?? null,
+        k2o: data.datos.k2o ?? null,
+        p2o5: data.datos.p2o5 ?? null,
+        pb: data.datos.pb ?? null,
+        cd: data.datos.cd ?? null,
+        as_ppm: data.datos.as_ppm ?? null,
+        drx: null,
+        petrografia: null
       },
       extras: {
         pn: null, blancura: null, tamano_particula: null, humedad: null,
@@ -1015,9 +942,9 @@ async function processUploadedFile() {
       },
       avisos: data.avisos || []
     }
-    toast.add({ title: 'Extracción completada', description: 'Revisa y ajusta los valores antes de guardar.', color: 'emerald' })
+    toast.add({ title: 'Extracción completada', description: 'Revisa y ajusta los valores antes de guardar.', color: 'success' })
   } catch (e) {
-    toast.add({ title: 'Error de Extracción', description: e.data?.detail || 'No se pudo leer el PDF. Asegúrate de subir el reporte de Sample Results.', color: 'rose' })
+    toast.add({ title: 'Error de Extracción', description: e.data?.statusMessage || e.data?.detail || e.statusMessage || 'No se pudo leer el PDF. Asegúrate de subir el reporte de Sample Results.', color: 'error' })
   } finally {
     ocrLoading.value = false
   }
@@ -1028,37 +955,40 @@ async function saveEvaluation(payload) {
   try {
     const bodyPayload = {
       id_muestra: payload.muestra_id,
-      caco3: payload.caco3 || 0,
-      cao: payload.cao || 0,
-      mgo: payload.mgo || 0,
-      sio2: payload.sio2 || 0,
-      fe2o3: payload.fe2o3 || 0,
-      al2o3: payload.al2o3 || 0,
-      so3: payload.so3 || 0,
-      na2o: payload.na2o || 0,
-      k2o: payload.k2o || 0,
-      p2o5: payload.p2o5 || 0,
-      pb: payload.pb || 0,
-      cd: payload.cd || 0,
-      as_ppm: payload.as_ppm || 0,
-      drx: payload.drx || 'Calcita',
-      petrografia: payload.petrografia || 'Micrítica de grano fino',
-      extras: ocrResult.value?.extras || {},
+      caco3: nullable(payload.caco3),
+      cao: nullable(payload.cao),
+      mgo: nullable(payload.mgo),
+      sio2: nullable(payload.sio2),
+      fe2o3: nullable(payload.fe2o3),
+      al2o3: nullable(payload.al2o3),
+      so3: nullable(payload.so3),
+      na2o: nullable(payload.na2o),
+      k2o: nullable(payload.k2o),
+      p2o5: nullable(payload.p2o5),
+      pb: nullable(payload.pb),
+      cd: nullable(payload.cd),
+      as_ppm: nullable(payload.as_ppm),
+      drx: payload.drx || null,
+      petrografia: payload.petrografia || null,
+      extras: Object.fromEntries(Object.entries(ocrResult.value?.extras || {}).map(([key, value]) => [key, nullable(value)])),
       archivo_fuente: uploadedFileName.value || 'PDF Upload',
+      contexto: { ...evaluationContext('pdf', payload.originales), texto_reporte: payload.texto_reporte },
       guardar_db: true
     }
 
-    await $fetch(`${apiBase}/evaluar`, {
+    const saved = await $fetch(`${apiBase}/evaluar`, {
       method: 'POST',
       body: bodyPayload
     })
 
-    toast.add({ title: 'Muestra Registrada', description: `La muestra "${payload.muestra_id}" se guardó en SQLite exitosamente.`, color: 'emerald' })
+    toast.add({ title: 'Muestra Registrada', description: `La muestra "${payload.muestra_id}" se guardó en SQLite exitosamente.`, color: 'success' })
+    viewSampleDetails(saved)
     clearUploadedFile()
+    contexts.value.pdf = newContext()
     fetchHistorial()
     activeTab.value = 'dashboard'
   } catch (e) {
-    toast.add({ title: 'Error de Guardado', description: e.data?.detail || 'No se pudo calcular/guardar la muestra.', color: 'rose' })
+    toast.add({ title: 'Error de Guardado', description: e.data?.statusMessage || e.data?.detail || e.statusMessage || 'No se pudo calcular/guardar la muestra.', color: 'error' })
   } finally {
     evalLoading.value = false
   }
@@ -1067,52 +997,55 @@ async function saveEvaluation(payload) {
 // Manual Form Submit
 async function submitManualForm() {
   if (!manualForm.value.id_muestra) {
-    toast.add({ title: 'ID faltante', description: 'Por favor asigne un ID único a la muestra.', color: 'amber' })
+    toast.add({ title: 'ID faltante', description: 'Por favor asigne un ID único a la muestra.', color: 'warning' })
     return
   }
 
   evalLoading.value = true
   try {
-    const cleanExtras = { ...manualForm.value.extras }
+    const cleanExtras = Object.fromEntries(Object.entries(manualForm.value.extras).map(([key, value]) => [key, nullable(value)]))
 
-    await $fetch(`${apiBase}/evaluar`, {
+    const saved = await $fetch(`${apiBase}/evaluar`, {
       method: 'POST',
       body: {
         id_muestra: manualForm.value.id_muestra,
-        caco3: manualForm.value.caco3 || 0,
-        cao: manualForm.value.cao || 0,
-        mgo: manualForm.value.mgo || 0,
-        sio2: manualForm.value.sio2 || 0,
-        fe2o3: manualForm.value.fe2o3 || 0,
-        al2o3: manualForm.value.al2o3 || 0,
-        so3: manualForm.value.so3 || 0,
-        na2o: manualForm.value.na2o || 0,
-        k2o: manualForm.value.k2o || 0,
-        p2o5: manualForm.value.p2o5 || 0,
-        pb: manualForm.value.pb || 0,
-        cd: manualForm.value.cd || 0,
-        as_ppm: manualForm.value.as_ppm || 0,
-        drx: manualForm.value.drx,
-        petrografia: manualForm.value.petrografia,
+        caco3: nullable(manualForm.value.caco3),
+        cao: nullable(manualForm.value.cao),
+        mgo: nullable(manualForm.value.mgo),
+        sio2: nullable(manualForm.value.sio2),
+        fe2o3: nullable(manualForm.value.fe2o3),
+        al2o3: nullable(manualForm.value.al2o3),
+        so3: nullable(manualForm.value.so3),
+        na2o: nullable(manualForm.value.na2o),
+        k2o: nullable(manualForm.value.k2o),
+        p2o5: nullable(manualForm.value.p2o5),
+        pb: nullable(manualForm.value.pb),
+        cd: nullable(manualForm.value.cd),
+        as_ppm: nullable(manualForm.value.as_ppm),
+        drx: nullable(manualForm.value.drx),
+        petrografia: nullable(manualForm.value.petrografia),
         extras: cleanExtras,
         archivo_fuente: 'Formulario manual',
+        contexto: evaluationContext('manual'),
         guardar_db: true
       }
     })
 
-    toast.add({ title: 'Muestra Registrada', description: `Muestra "${manualForm.value.id_muestra}" evaluada y registrada con éxito.`, color: 'emerald' })
+    toast.add({ title: 'Muestra Registrada', description: `Muestra "${manualForm.value.id_muestra}" evaluada y registrada con éxito.`, color: 'success' })
 
+    viewSampleDetails(saved)
+    contexts.value.manual = newContext()
     // Reset form
     manualForm.value = {
       id_muestra: '', caco3: null, cao: null, mgo: null, sio2: null, fe2o3: null, al2o3: null, so3: null,
-      na2o: null, k2o: null, p2o5: null, pb: null, cd: null, as_ppm: null, drx: 'Calcita', petrografia: 'Micrítica de grano fino',
+      na2o: null, k2o: null, p2o5: null, pb: null, cd: null, as_ppm: null, drx: null, petrografia: null,
       extras: { pn: null, blancura: null, tamano_particula: null, humedad: null, cao_disponible: null, cao_reactivo: null, resistencia: null, absorcion: null }
     }
 
     fetchHistorial()
     activeTab.value = 'dashboard'
   } catch (e) {
-    toast.add({ title: 'Error de Guardado', description: e.data?.detail || 'No se pudo realizar la evaluación.', color: 'rose' })
+    toast.add({ title: 'Error de Guardado', description: e.data?.statusMessage || e.data?.detail || e.statusMessage || 'No se pudo realizar la evaluación.', color: 'error' })
   } finally {
     evalLoading.value = false
   }
@@ -1132,19 +1065,21 @@ async function submitBatchFile() {
   batchLoading.value = true
   const formData = new FormData()
   formData.append('file', batchFile.value)
+  formData.append('contexto', JSON.stringify(evaluationContext('batch')))
 
   try {
     const data = await $fetch(`${apiBase}/procesar-lote`, {
       method: 'POST',
       body: formData
     })
-    toast.add({ title: 'Carga Masiva Exitosa', description: `Se procesaron e insertaron ${data.count} muestras exitosamente.`, color: 'emerald' })
+    toast.add({ title: 'Carga Masiva Exitosa', description: `Se procesaron e insertaron ${data.count} muestras exitosamente.`, color: 'success' })
+    contexts.value.batch = newContext()
     batchFile.value = null
     batchFileName.value = ''
     fetchHistorial()
     activeTab.value = 'dashboard'
   } catch (e) {
-    toast.add({ title: 'Error de Lote', description: e.data?.detail || 'No se pudo procesar el archivo por lotes.', color: 'rose' })
+    toast.add({ title: 'Error de Lote', description: e.data?.statusMessage || e.data?.detail || e.statusMessage || 'No se pudo procesar el archivo por lotes.', color: 'error' })
   } finally {
     batchLoading.value = false
   }
@@ -1153,6 +1088,9 @@ async function submitBatchFile() {
 // Visualizer details
 function viewSampleDetails(sample) {
   selectedSample.value = sample
+  evidenceFile.value = null
+  evidenceConfirmed.value = false
+  replaceEvidence.value = false
   drawerOpen.value = true
 }
 
@@ -1169,15 +1107,73 @@ async function executeDeleteSample() {
     await $fetch(`${apiBase}/historial/${encodeURIComponent(sampleToDelete.value)}`, {
       method: 'DELETE'
     })
-    toast.add({ title: 'Muestra Eliminada', description: `La muestra "${sampleToDelete.value}" se borró exitosamente.`, color: 'emerald' })
+    toast.add({ title: 'Muestra Eliminada', description: `La muestra "${sampleToDelete.value}" se borró exitosamente.`, color: 'success' })
     fetchHistorial()
   } catch (e) {
-    toast.add({ title: 'Error de Eliminación', description: 'No se pudo borrar el registro.', color: 'rose' })
+    toast.add({ title: 'Error de Eliminación', description: 'No se pudo borrar el registro.', color: 'error' })
   } finally {
     deleteLoading.value = false
     deleteModalOpen.value = false
     sampleToDelete.value = ''
   }
+}
+
+const chemicalFields = [
+  { key: 'caco3', label: 'CaCO₃', unit: '%' }, { key: 'cao', label: 'CaO', unit: '%' },
+  { key: 'mgo', label: 'MgO', unit: '%' }, { key: 'sio2', label: 'SiO₂', unit: '%' },
+  { key: 'fe2o3', label: 'Fe₂O₃', unit: '%' }, { key: 'al2o3', label: 'Al₂O₃', unit: '%' },
+  { key: 'so3', label: 'SO₃', unit: '%' }, { key: 'na2o', label: 'Na₂O', unit: '%' },
+  { key: 'k2o', label: 'K₂O', unit: '%' }, { key: 'p2o5', label: 'P₂O₅', unit: '%' },
+  { key: 'pb', label: 'Pb', unit: 'ppm' }, { key: 'cd', label: 'Cd', unit: 'ppm' },
+  { key: 'as_ppm', label: 'As', unit: 'ppm' }, { key: 'loi', label: 'LOI', unit: '%' }
+]
+function nullable(value) { return value == null || value === '' ? null : value }
+function showNumber(value, unit = '') { return value == null || value === '' ? 'Sin dato' : `${typeof value === 'number' ? Number(value.toPrecision(10)) : value}${unit ? ` ${unit}` : ''}` }
+function summaryText(sample) {
+  const r = sample?.resumen
+  return r ? `${r.aptos} cumplen · ${r.no_aptos} incumplen · ${r.pendientes} requieren ensayos` : 'Resultado no disponible'
+}
+function chemicalText(text) {
+  const formulas = { CaCO3: 'CaCO₃', MgCO3: 'MgCO₃', SiO2: 'SiO₂', Fe2O3: 'Fe₂O₃', Al2O3: 'Al₂O₃', Na2O: 'Na₂O', K2O: 'K₂O', P2O5: 'P₂O₅', SO3: 'SO₃', H2O: 'H₂O', 'Ca(OH)2': 'Ca(OH)₂' }
+  return String(text ?? '').replace(/CaCO3|MgCO3|SiO2|Fe2O3|Al2O3|Na2O|K2O|P2O5|SO3|H2O|Ca\(OH\)2/g, formula => formulas[formula])
+}
+const evidenceFile = ref(null)
+const evidenceConfirmed = ref(false)
+const replaceEvidence = ref(false)
+const evidenceLoading = ref(false)
+function selectEvidence(event) {
+  const file = event.target.files[0]
+  evidenceFile.value = null
+  evidenceConfirmed.value = false
+  replaceEvidence.value = false
+  if (!file) return
+  if (!file.name.toLowerCase().endsWith('.pdf') || file.size === 0 || file.size > 10 * 1024 * 1024) {
+    toast.add({ title: 'Evidencia inválida', description: 'Selecciona un PDF no vacío de hasta 10 MiB.', color: 'error' })
+    event.target.value = ''
+    return
+  }
+  evidenceFile.value = file
+  event.target.value = ''
+}
+async function uploadEvidence() {
+  const sample = selectedSample.value
+  if (!sample || !evidenceFile.value || !evidenceConfirmed.value || (sample.evidencia && !replaceEvidence.value)) return
+  evidenceLoading.value = true
+  const body = new FormData()
+  body.append('file', evidenceFile.value)
+  body.append('confirmacion', 'true')
+  body.append('reemplazar', String(replaceEvidence.value))
+  try {
+    const result = await $fetch(`${apiBase}/historial/${encodeURIComponent(sample.id_muestra)}/evidencia`, { method: 'POST', body })
+    sample.evidencia = result.evidencia || result
+    evidenceFile.value = null
+    evidenceConfirmed.value = false
+    replaceEvidence.value = false
+    toast.add({ title: 'Evidencia guardada', color: 'success' })
+    fetchHistorial()
+  } catch (e) {
+    toast.add({ title: 'No se pudo adjuntar', description: e.data?.statusMessage || e.data?.detail || e.statusMessage || 'La muestra sigue guardada. Puedes reintentar el adjunto.', color: 'error' })
+  } finally { evidenceLoading.value = false }
 }
 
 // Download Excel
