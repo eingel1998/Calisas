@@ -12,20 +12,31 @@ export interface EnsayosOpcionales {
   absorcion?: number | null
 }
 
+// Cada compuesto del reporte tal como lo emitió el equipo, sin conversiones.
+// Se guarda completo aunque los perfiles no lo usen: es dato de laboratorio.
+export interface ElementoXRF {
+  nombre: string
+  conc: number
+  unidad: string
+}
+
+// null = analito no reportado por el laboratorio ("no medido" ≠ 0).
 export interface DatosXRF {
   muestra_id: string
+  elementos: ElementoXRF[]
   caco3: number
   cao: number
   mgo: number
   sio2: number
   fe2o3: number
   al2o3: number
-  so3: number
-  na2o: number
+  so3: number | null
+  na2o: number | null
   k2o: number
-  pb: number
-  cd: number
-  as_ppm: number
+  p2o5: number | null
+  pb: number | null
+  cd: number | null
+  as_ppm: number | null
 }
 
 export interface PerfilDictamen {
@@ -34,6 +45,12 @@ export interface PerfilDictamen {
   norma: string
   estado: 'Apto' | 'No Apto' | 'Requiere ensayos'
   razon: string
+  // Qué tan respaldado está el dictamen:
+  //  Alta       — todos los criterios con medición directa y método aceptado
+  //  Media      — algún valor es estimado a partir de otro (se detalla en salvedades)
+  //  Preliminar — el método disponible no basta para certificar (p. ej. la norma pide ICP-MS)
+  confianza: 'Alta' | 'Media' | 'Preliminar'
+  salvedades: string[]
 }
 
 export interface ResultadoEvaluacion {
@@ -43,13 +60,13 @@ export interface ResultadoEvaluacion {
   sio2: number
   fe2o3: number
   al2o3: number
-  so3: number
-  na2o: number
+  so3: number | null
+  na2o: number | null
   k2o: number
-  p2o5: number
-  pb: number
-  cd: number
-  as_ppm: number
+  p2o5: number | null
+  pb: number | null
+  cd: number | null
+  as_ppm: number | null
   loi: number
   res_insol: number
   alcalis: number
@@ -68,6 +85,26 @@ export interface ResultadoEvaluacion {
   cumple_norma: boolean
   estado_eval: 'APTO' | 'NO APTO'
   dictamenes: PerfilDictamen[]
+  // Base sobre la que se contrastaron los criterios normativos. Si el reporte
+  // viene calcinado (óxidos normalizados a 100% sin LOI), los perfiles se
+  // evalúan sobre base carbonato: factor_base < 1 y base_evaluacion la refleja.
+  base_calcinada: boolean
+  factor_base: number
+  base_evaluacion: {
+    caco3: number
+    cao: number
+    mgo: number
+    sio2: number
+    fe2o3: number
+    al2o3: number
+    so3: number | null
+    na2o: number | null
+    k2o: number
+    p2o5: number | null
+    pb: number | null
+    cd: number | null
+    as_ppm: number | null
+  }
 }
 
 export interface MuestraDB {

@@ -11,10 +11,12 @@ export default defineEventHandler(async (event) => {
       Object.entries(extrasRaw).filter(([, v]) => v !== null && v !== undefined)
     )
 
+    const elementos = Array.isArray(req.elementos) ? req.elementos : []
     const evalRes = calcular_evaluacion(
       req.caco3, req.cao, req.mgo, req.sio2, req.fe2o3, req.al2o3, req.so3,
       req.na2o, req.k2o, req.p2o5, req.pb, req.cd, req.as_ppm,
-      req.petrografia ?? 'Micrítica de grano fino', true, 0, 0, 0, extras
+      req.petrografia ?? 'Micrítica de grano fino', true, 0, 0, 0, extras,
+      elementos
     )
 
     const now = new Date()
@@ -22,6 +24,7 @@ export default defineEventHandler(async (event) => {
 
     const fullPayload = {
       id_muestra: req.id_muestra,
+      elementos,
       drx: req.drx ?? 'Calcita',
       petrografia: req.petrografia ?? 'Micrítica de grano fino',
       archivo_fuente: req.archivo_fuente ?? 'Manual',

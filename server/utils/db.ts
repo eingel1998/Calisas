@@ -44,7 +44,10 @@ CREATE TABLE IF NOT EXISTS muestras (
     cao_disponible REAL,
     cao_reactivo REAL,
     resistencia REAL,
-    absorcion REAL
+    absorcion REAL,
+    elementos_json TEXT,
+    interpretacion_ia TEXT,
+    interpretacion_fecha TEXT
 )`
 
 let client: Client | null = null
@@ -61,6 +64,19 @@ function getClient(): Client {
 
 export async function ensureSchema(): Promise<void> {
   await getClient().execute(SCHEMA_SQL)
+  // migraciones para BDs anteriores (ALTER falla si la columna ya existe)
+  for (const col of ['elementos_json TEXT', 'interpretacion_ia TEXT', 'interpretacion_fecha TEXT']) {
+    await getClient().execute(`ALTER TABLE muestras ADD COLUMN ${col}`).catch(() => {})
+  }
+}
+
+// La interpretación se persiste: el historial debe poder consultarse sin volver
+// a pagar/esperar una inferencia cada vez que se abre la muestra.
+export async function guardar_interpretacion_db(id_muestra: string, texto: string): Promise<void> {
+  await getClient().execute({
+    sql: 'UPDATE muestras SET interpretacion_ia = ?, interpretacion_fecha = ? WHERE id_muestra = ?',
+    args: [texto, await fechaAhora(), id_muestra],
+  })
 }
 
 async function fechaAhora(): Promise<string> {
@@ -79,8 +95,9 @@ export async function registrar_muestra_db(datos: Record<string, any>): Promise<
         id_muestra, caco3, cao, mgo, sio2, fe2o3, al2o3, so3, na2o, k2o, p2o5, pb, cd, as_ppm,
         drx, petrografia, loi, res_insol, alcalis, lsf, sm, am, c3s, c2s, c3a, c4af,
         estado_eval, archivo_fuente, fecha_registro, dictamenes_json,
-        pn, blancura, tamano_particula, humedad, cao_disponible, cao_reactivo, resistencia, absorcion
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        pn, blancura, tamano_particula, humedad, cao_disponible, cao_reactivo, resistencia, absorcion,
+        elementos_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       datos.id_muestra,
       datos.caco3, datos.cao, datos.mgo, datos.sio2, datos.fe2o3, datos.al2o3, datos.so3,
@@ -92,6 +109,7 @@ export async function registrar_muestra_db(datos: Record<string, any>): Promise<
       dictamenes_json,
       extras.pn ?? null, extras.blancura ?? null, extras.tamano_particula ?? null, extras.humedad ?? null,
       extras.cao_disponible ?? null, extras.cao_reactivo ?? null, extras.resistencia ?? null, extras.absorcion ?? null,
+      datos.elementos ? JSON.stringify(datos.elementos) : null,
     ],
   })
 }
@@ -104,6 +122,11 @@ export async function obtener_muestras_db(): Promise<any[]> {
       d.dictamenes = d.dictamenes_json ? JSON.parse(d.dictamenes_json) : []
     } catch {
       d.dictamenes = []
+    }
+    try {
+      d.elementos = d.elementos_json ? JSON.parse(d.elementos_json) : []
+    } catch {
+      d.elementos = []
     }
   }
   return filas

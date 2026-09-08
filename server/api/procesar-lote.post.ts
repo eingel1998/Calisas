@@ -21,6 +21,12 @@ export default defineEventHandler(async (event) => {
       const n = Number(v)
       return Number.isFinite(n) ? n : 0.0
     }
+    // celda vacía = analito no medido → null (no un 0 que "cumple" límites)
+    const numOpt = (v: unknown): number | null => {
+      if (v === null || v === undefined || v === '') return null
+      const n = Number(v)
+      return Number.isFinite(n) ? n : null
+    }
     const str = (v: unknown, dflt: string): string => {
       if (v === null || v === undefined || v === '') return dflt
       return String(v).trim()
@@ -35,9 +41,9 @@ export default defineEventHandler(async (event) => {
       const id_muestra = String(idRaw).trim()
       const evalRes = calcular_evaluacion(
         num(row['CACO3']), num(row['CAO']), num(row['MGO']), num(row['SIO2']),
-        num(row['FE2O3']), num(row['AL2O3']), num(row['SO3']),
-        num(row['NA2O']), num(row['K2O']), num(row['P2O5']), num(row['PB']), num(row['CD']),
-        num(row['AS']),
+        num(row['FE2O3']), num(row['AL2O3']), numOpt(row['SO3']),
+        numOpt(row['NA2O']), num(row['K2O']), numOpt(row['P2O5']), numOpt(row['PB']), numOpt(row['CD']),
+        numOpt(row['AS']),
         str(row['PETROGRAFIA'], 'Micrítica de grano fino'), true, 0, 0, 0, {}
       )
 
