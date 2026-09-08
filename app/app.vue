@@ -955,6 +955,7 @@ async function processUploadedFile() {
     ocrResult.value = {
       datos: {
         muestra_id: data.datos.muestra_id || '',
+        archivo_fuente: uploadedFileName.value,
         originales: data.datos.originales || [],
         metadatos: data.datos.metadatos || {},
         texto_reporte: data.datos.texto_reporte || data.texto_crudo || '',
@@ -980,6 +981,8 @@ async function processUploadedFile() {
       },
       avisos: data.avisos || []
     }
+    uploadedFile.value = null
+    uploadedFileName.value = ''
     toast.add({ title: 'Extracción completada', description: 'Revisa y ajusta los valores antes de guardar.', color: 'success' })
   } catch (e) {
     toast.add({ title: 'Error de Extracción', description: e.data?.statusMessage || e.data?.detail || e.statusMessage || 'No se pudo leer el PDF. Asegúrate de subir el reporte de Sample Results.', color: 'error' })
@@ -1009,7 +1012,7 @@ async function saveEvaluation(payload) {
       drx: payload.drx || null,
       petrografia: payload.petrografia || null,
       extras: Object.fromEntries(Object.entries(ocrResult.value?.extras || {}).map(([key, value]) => [key, nullable(value)])),
-      archivo_fuente: uploadedFileName.value || 'PDF Upload',
+      archivo_fuente: payload.archivo_fuente || 'PDF Upload',
       contexto: { ...evaluationContext('pdf', payload.originales), texto_reporte: payload.texto_reporte },
       guardar_db: true
     }
