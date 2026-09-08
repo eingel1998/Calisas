@@ -673,7 +673,11 @@
     </main>
 
     <!-- INTERACTIVE DETAIL SLIDE-OVER / DRAWER -->
-    <USlideover v-model:open="drawerOpen" title="Detalle de Muestra">
+  <USlideover
+    v-model:open="drawerOpen"
+    title="Detalle de Muestra"
+    :ui="{ content: 'w-full sm:max-w-4xl' }"
+  >
       <template #content>
         <div class="h-full flex flex-col bg-white">
           <!-- Drawer Header -->
