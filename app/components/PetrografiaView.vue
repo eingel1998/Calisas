@@ -97,7 +97,7 @@ async function guardar() {
         </label>
         <div v-for="(file, i) in files" :key="i" class="flex items-center gap-3 text-sm"><span class="truncate">{{ file.name }}</span><select v-model="condiciones[i]" :aria-label="`Condición óptica de ${file.name}`" class="rounded border p-1"><option>Desconocida</option><option>LP/PPL</option><option>NX/XPL</option></select></div>
         <div v-if="imagenes.length" class="flex flex-wrap gap-4"><a v-for="image in imagenes" :key="image.id" :href="`${api()}/${image.id}`" target="_blank" rel="noopener" class="text-sm text-emerald-700 underline">{{ image.nombre }} · {{ image.condicion }}</a></div>
-        <UButton :loading="busy" :disabled="!files.length" color="success" @click="analizar">Generar borrador con OpenAI</UButton>
+        <UButton :loading="busy" :disabled="!files.length" color="success" @click="analizar">Generar borrador con IA</UButton>
       </div>
     </div></UCard>
     <UCard v-if="id && informe"><div class="space-y-3"><label class="block text-sm font-semibold" for="informe-petrografico">Informe editable</label><textarea id="informe-petrografico" v-model="informe" rows="22" class="w-full rounded-md border border-slate-300 p-3 font-mono text-sm" /><div class="flex flex-wrap items-center gap-3"><select v-model="estado" aria-label="Estado del informe" class="rounded border p-2"><option value="borrador">Borrador</option><option value="revisado">Revisado por especialista</option></select><UButton :loading="busy" color="success" @click="guardar">Guardar informe</UButton></div><p class="text-xs text-slate-500">Modelo: {{ modelo || 'Sin análisis automático' }}. La clasificación y las estimaciones visuales requieren validación petrográfica.</p></div></UCard>

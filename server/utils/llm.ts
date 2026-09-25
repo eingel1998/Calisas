@@ -4,11 +4,14 @@
 //  2. extraer_tabla_imagen — camino B: modelo de visión lee la tabla "Sample
 //     results" de una imagen; el usuario SIEMPRE confirma los valores en el
 //     paso 2 del modal antes de evaluar.
-// Cliente OpenAI-compatible por fetch (OpenRouter, Novita u otro) vía env:
+// Cliente OpenAI-compatible (OpenRouter, Novita u otro) vía env:
 //   LLM_API_KEY          (obligatoria)
 //   LLM_BASE_URL         (default https://openrouter.ai/api/v1)
 //   LLM_MODEL            texto; lista separada por comas = fallbacks en orden
 //   LLM_VISION_MODEL     visión; misma semántica de lista
+
+import type OpenAI from 'openai'
+import { aiClient } from './ai-client'
 
 // Matriz de referencia: mismos umbrales que PERFILES_INDUSTRIALES en calculos.ts.
 // Le da al modelo el contexto normativo para EXPLICAR los dictámenes (no para
@@ -78,33 +81,21 @@ export function ocr_configurado(): boolean {
 
 // Intenta cada modelo de la lista en orden — los :free se saturan a ratos (429)
 // y esto evita que el error llegue al usuario mientras haya alternativa viva.
-async function chat(messages: unknown[], modelosEnv: string | undefined, modelosDefault: string, maxTokens = 900): Promise<string> {
+async function chat(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], modelosEnv: string | undefined, modelosDefault: string, maxTokens = 900): Promise<string> {
   const base = (process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '')
+  const client = aiClient(process.env.LLM_API_KEY || '', base)
   const modelos = (modelosEnv || modelosDefault).split(',').map((m) => m.trim()).filter(Boolean)
 
   let ultimoError = ''
   for (const model of modelos) {
-    const res = await fetch(`${base}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.LLM_API_KEY}`,
-      },
-      body: JSON.stringify({ model, temperature: 0.1, max_tokens: maxTokens, messages }),
-      signal: AbortSignal.timeout(90_000),
-    })
-
-    if (!res.ok) {
-      const detalle = await res.text().catch(() => '')
-      console.log(`[LLM] ${model} → HTTP ${res.status}\n${detalle.slice(0, 1000)}`)
-      ultimoError = `${model} respondió ${res.status}: ${detalle.slice(0, 200)}`
-      continue
+    try {
+      const data = await client.chat.completions.create({ model, temperature: 0.1, max_tokens: maxTokens, messages })
+      const texto = data.choices[0]?.message.content?.trim()
+      if (texto) return texto
+      ultimoError = `${model} devolvió una respuesta vacía.`
+    } catch (error) {
+      ultimoError = `${model}: ${error instanceof Error ? error.message : String(error)}`
     }
-    const data = await res.json()
-    console.log(`[LLM] ${model} → respuesta:\n${JSON.stringify(data, null, 2)}`)
-    const texto = data?.choices?.[0]?.message?.content?.trim()
-    if (texto) return texto
-    ultimoError = `${model} devolvió una respuesta vacía.`
   }
   throw new Error(`Ningún modelo LLM disponible. Último error: ${ultimoError}`)
 }
@@ -157,35 +148,19 @@ export async function extraer_texto_ocr(bytes: Buffer | Uint8Array, mime: string
   const model = process.env.OCR_MODEL || 'deepseek-ai/DeepSeek-OCR-2'
   const b64 = Buffer.from(bytes).toString('base64')
 
-  const res = await fetch(`${base}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.OCR_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0,
-      max_tokens: 3000,
-      messages: [{
+  const data = await aiClient(process.env.OCR_API_KEY || '', base, 120_000).chat.completions.create({
+    model,
+    temperature: 0,
+    max_tokens: 3000,
+    messages: [{
         role: 'user',
         content: [
           { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } },
           { type: 'text', text: 'Convert the document to markdown.' },
         ],
-      }],
-    }),
-    signal: AbortSignal.timeout(120_000),
+    }],
   })
-
-  if (!res.ok) {
-    const detalle = await res.text().catch(() => '')
-    console.log(`[OCR] ${model} → HTTP ${res.status}\n${detalle.slice(0, 1000)}`)
-    throw new Error(`OCR ${model} respondió ${res.status}: ${detalle.slice(0, 200)}`)
-  }
-  const data = await res.json()
-  console.log(`[OCR] ${model} → respuesta:\n${JSON.stringify(data, null, 2)}`)
-  const md = data?.choices?.[0]?.message?.content?.trim()
+  const md = data.choices[0]?.message.content?.trim()
   if (!md) return null
   const normalizado = normalizar_markdown_ocr(md)
   console.log(`[OCR] markdown normalizado para el parser:\n${normalizado}`)
