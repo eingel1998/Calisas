@@ -90,7 +90,8 @@ const navItems = [
     children: [
       { id: 'pdf', label: 'Extraer desde PDF' },
       { id: 'manual', label: 'Entrada manual' },
-      { id: 'batch', label: 'Carga masiva' }
+      { id: 'batch', label: 'Carga masiva' },
+      { id: 'petrografia', label: 'Análisis Petrográfico' }
     ]
   },
   { id: 'historial', icon: 'i-heroicons-table-cells', label: 'Historial y Base de Datos' }

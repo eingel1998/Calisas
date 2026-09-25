@@ -38,7 +38,8 @@
 
         <DashboardView v-if="activeTab === 'dashboard'" :samples="samples" :summary-text="summaryText" @navigate="target => { activeTab = target === 'historial' ? 'historial' : 'evaluar'; if (target !== 'historial') subTab = target }" @export="downloadExcel" @open-sample="viewSampleDetails" />
 
-        <EvaluationView v-if="activeTab === 'evaluar'" v-model:sub-tab="subTab">
+        <PetrografiaView v-if="activeTab === 'evaluar' && subTab === 'petrografia'" :samples="samples" :api-base="apiBase" />
+        <EvaluationView v-else-if="activeTab === 'evaluar'" v-model:sub-tab="subTab">
           <template #context>
             <EvaluationContextPanel v-model:options="analysisOptions" :base-options="baseOptions" :is-batch="subTab === 'batch'" />
           </template>

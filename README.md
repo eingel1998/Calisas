@@ -32,6 +32,12 @@ Cada perfil muestra criterios, valores, unidades, límites, procedencia y pendie
 
 Resumen, detalle, historial y Excel usan los mismos dictámenes. Los registros anteriores se identifican como históricos y mantienen sus resultados sin recálculo. No es posible sobrescribirlos usando el mismo ID; tampoco se incluye reevaluación masiva. Un lote inválido o con ID duplicado no se guarda parcialmente.
 
+## Petrografía de secciones delgadas
+
+En **Evaluar Muestra → Análisis Petrográfico**, selecciona una muestra ya registrada, añade hasta cuatro fotografías JPEG/PNG/WEBP (máximo 8 MiB cada una), indica si cada imagen es LP/PPL o NX/XPL y completa el contexto disponible. **Generar borrador con OpenAI** requiere `OPENAI_API_KEY` configurada solo en el servidor; `OPENAI_PETROGRAFIA_MODEL` permite cambiar el modelo (por defecto `gpt-4.1`). Las fotografías se envían a la API de OpenAI únicamente al generar el borrador. Revisa el texto antes de guardarlo y marca **Revisado por especialista** solo tras validación humana. El informe y las imágenes se conservan vinculados a la muestra; eliminar la muestra también los elimina.
+
+El análisis visual es preliminar: una fotografía puede no permitir identificar mineralogía, estimar porcentajes o reconstruir un ambiente deposicional. El informe petrográfico no modifica los dictámenes geoquímicos.
+
 ## Evidencia PDF
 
 Desde el detalle de una muestra se puede adjuntar un PDF (por ejemplo, M7 E), confirmando su correspondencia. Se guarda como BLOB en libSQL y se descarga por identificador de muestra. Un archivo por muestra, hasta 10 MiB. La sustitución requiere confirmación. Un fallo al adjuntar no elimina la evaluación.
