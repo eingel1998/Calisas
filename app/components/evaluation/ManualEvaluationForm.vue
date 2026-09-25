@@ -15,7 +15,7 @@ const extras = [['pn', 'Poder Neutralizante PN (%)'], ['blancura', 'Blancura (%)
       <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
         <AppField v-model="form.id_muestra" label="ID Muestra *" required placeholder="Ej: CAR-001" color="success" />
         <AppField v-for="field in fields" :key="field[0]" v-model.number="form[field[0]]" :label="field[1]" type="number" step="any" min="0" :max="field[3] === '%' ? 100 : undefined" :placeholder="field[2]" color="success" />
-        <AppSelect v-model="form.drx" label="Fase Mineral Dominante (DRX)" :items="drxOptions" color="success" />
+        <AppSelect v-model="form.drx" label="Mineral dominante reportado por DRX (opcional)" :items="drxOptions" color="success" />
         <AppSelect v-model="form.petrografia" label="Textura Dominante (Petrografía)" :items="petrografiaOptions" color="success" />
       </div>
       <UAccordion color="neutral" variant="soft" :items="[{ label: '🧪 Ensayos adicionales opcionales (Para habilitar más perfiles industriales)', slot: 'fields' }]">

@@ -63,7 +63,7 @@ function getClient(): Client {
 export async function ensureSchema(db: Client = getClient()): Promise<void> {
   await db.execute(SCHEMA_SQL)
   const columns = await db.execute('PRAGMA table_info(muestras)')
-  for (const [name, type] of [['contexto_json', 'TEXT'], ['version_evaluacion', 'INTEGER'], ['interpretacion_ia', 'TEXT'], ['interpretacion_fecha', 'TEXT']]) {
+  for (const [name, type] of [['contexto_json', 'TEXT'], ['version_evaluacion', 'INTEGER'], ['interpretacion_ia', 'TEXT'], ['interpretacion_fecha', 'TEXT'], ['fecha_modificacion', 'TEXT']]) {
     if (!columns.rows.some(row => row.name === name)) await db.execute(`ALTER TABLE muestras ADD COLUMN ${name} ${type}`)
   }
   await db.execute(`CREATE TABLE IF NOT EXISTS evidencias (
@@ -77,6 +77,14 @@ export async function ensureSchema(db: Client = getClient()): Promise<void> {
   await db.execute(`CREATE TABLE IF NOT EXISTS petrografia_imagenes (
     id INTEGER PRIMARY KEY AUTOINCREMENT, id_muestra TEXT NOT NULL,
     nombre TEXT NOT NULL, condicion TEXT NOT NULL, tipo TEXT NOT NULL, contenido BLOB NOT NULL
+  )`)
+  await db.execute(`CREATE TABLE IF NOT EXISTS drx_fases (
+    id_muestra TEXT NOT NULL, mineral TEXT NOT NULL, porcentaje REAL,
+    PRIMARY KEY (id_muestra, mineral)
+  )`)
+  await db.execute(`CREATE TABLE IF NOT EXISTS drx_ensayos (
+    id_muestra TEXT PRIMARY KEY, laboratorio TEXT, fecha_ensayo TEXT,
+    observaciones TEXT, fecha_registro TEXT NOT NULL
   )`)
 }
 
@@ -113,6 +121,20 @@ export async function registrar_muestra_db(datos: Record<string, any>, db: Clien
   await registrar_muestras_db([datos], db)
 }
 
+export async function actualizar_muestra_db(id: string, datos: Record<string, any>, fechaEsperada: string | null, db: Client = getClient()): Promise<void> {
+  const tx = await db.transaction('write')
+  try {
+    const actual = await tx.execute({ sql: 'SELECT fecha_modificacion FROM muestras WHERE id_muestra = ?', args: [id] })
+    if (!actual.rows.length) throw error_db(404, 'La muestra no existe')
+    if ((actual.rows[0].fecha_modificacion || null) !== fechaEsperada) throw error_db(409, 'La muestra cambió desde que la abriste; recarga el historial')
+    const campos = CAMPOS.filter(c => !['id_muestra', 'fecha_registro', 'archivo_fuente'].includes(c))
+    const valores = { ...datos, ...datos.extras, dictamenes_json: JSON.stringify(datos.dictamenes), contexto_json: JSON.stringify(datos.contexto) }
+    const fecha = new Date().toISOString()
+    await tx.execute({ sql: `UPDATE muestras SET ${campos.map(c => `${c} = ?`).join(', ')}, fecha_modificacion = ? WHERE id_muestra = ?`, args: [...campos.map(c => valores[c] ?? null), fecha, id] })
+    await tx.commit()
+  } finally { tx.close() }
+}
+
 function leerJSON(valor: unknown): any {
   try { return typeof valor === 'string' ? JSON.parse(valor) : null } catch { return null }
 }
@@ -132,6 +154,8 @@ export async function obtener_muestras_db(db: Client = getClient()): Promise<any
 
 export async function borrar_muestra_db(id_muestra: string, db: Client = getClient()): Promise<void> {
   await db.batch([
+    { sql: 'DELETE FROM drx_fases WHERE id_muestra = ?', args: [id_muestra] },
+    { sql: 'DELETE FROM drx_ensayos WHERE id_muestra = ?', args: [id_muestra] },
     { sql: 'DELETE FROM petrografia_imagenes WHERE id_muestra = ?', args: [id_muestra] },
     { sql: 'DELETE FROM petrografias WHERE id_muestra = ?', args: [id_muestra] },
     { sql: 'DELETE FROM evidencias WHERE id_muestra = ?', args: [id_muestra] },
@@ -167,6 +191,27 @@ export async function obtener_imagen_petrografia_db(id: string, imagenId: number
   const res = await db.execute({ sql: 'SELECT nombre, tipo, contenido FROM petrografia_imagenes WHERE id_muestra = ? AND id = ?', args: [id, imagenId] })
   if (!res.rows.length) throw error_db(404, 'Imagen no encontrada')
   return res.rows[0]!
+}
+
+export async function obtener_drx_db(id: string, db: Client = getClient()) {
+  const muestra = await db.execute({ sql: 'SELECT id_muestra FROM muestras WHERE id_muestra = ?', args: [id] })
+  if (!muestra.rows.length) throw error_db(404, 'La muestra no existe')
+  const ensayo = await db.execute({ sql: 'SELECT laboratorio, fecha_ensayo, observaciones, fecha_registro FROM drx_ensayos WHERE id_muestra = ?', args: [id] })
+  const fases = await db.execute({ sql: 'SELECT mineral, porcentaje FROM drx_fases WHERE id_muestra = ? ORDER BY mineral', args: [id] })
+  return { ...(ensayo.rows[0] || {}), fases: fases.rows }
+}
+
+export async function guardar_drx_db(id: string, ensayo: { laboratorio: string; fecha_ensayo: string; observaciones: string; fases: Array<{ mineral: string; porcentaje: number | null }> }, db: Client = getClient()) {
+  const tx = await db.transaction('write')
+  try {
+    const muestra = await tx.execute({ sql: 'SELECT id_muestra FROM muestras WHERE id_muestra = ?', args: [id] })
+    if (!muestra.rows.length) throw error_db(404, 'La muestra no existe')
+    await tx.execute({ sql: `INSERT INTO drx_ensayos (id_muestra, laboratorio, fecha_ensayo, observaciones, fecha_registro) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id_muestra) DO UPDATE SET laboratorio=excluded.laboratorio, fecha_ensayo=excluded.fecha_ensayo, observaciones=excluded.observaciones, fecha_registro=excluded.fecha_registro`, args: [id, ensayo.laboratorio, ensayo.fecha_ensayo || null, ensayo.observaciones, new Date().toISOString()] })
+    await tx.execute({ sql: 'DELETE FROM drx_fases WHERE id_muestra = ?', args: [id] })
+    for (const fase of ensayo.fases) await tx.execute({ sql: 'INSERT INTO drx_fases (id_muestra, mineral, porcentaje) VALUES (?, ?, ?)', args: [id, fase.mineral, fase.porcentaje] })
+    await tx.commit()
+  } finally { tx.close() }
 }
 
 export async function guardar_evidencia_db(id: string, nombre: string, contenido: Uint8Array, reemplazar = false, db: Client = getClient()): Promise<void> {

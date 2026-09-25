@@ -30,7 +30,13 @@ Los valores estimados se muestran como informativos y no sustituyen mediciones n
 
 Cada perfil muestra criterios, valores, unidades, límites, procedencia y pendientes. Un incumplimiento demostrado prevalece, sin ocultar los ensayos faltantes. Si falta base, medición o verificación de una condición necesaria, se muestra `Requiere ensayos`. Las condiciones cualitativas de la matriz que no tienen una regla verificable permanecen pendientes; no existe aprobación manual de esas condiciones en esta versión.
 
-Resumen, detalle, historial y Excel usan los mismos dictámenes. Los registros anteriores se identifican como históricos y mantienen sus resultados sin recálculo. No es posible sobrescribirlos usando el mismo ID; tampoco se incluye reevaluación masiva. Un lote inválido o con ID duplicado no se guarda parcialmente.
+Resumen, detalle, historial y Excel usan los mismos dictámenes. Los registros anteriores se identifican como históricos y mantienen sus resultados sin recálculo. No se puede crear una segunda muestra con el mismo ID; tampoco se incluye reevaluación masiva. Un lote inválido o con ID duplicado no se guarda parcialmente.
+
+Desde el detalle de una muestra actual se pueden editar los valores de entrada y la base analítica. La aplicación recalcula los dictámenes al guardar y conserva la fecha de registro, el PDF de evidencia y los análisis de secciones delgadas/DRX. Si otro usuario modificó la muestra, se pide recargar antes de guardar. Los registros históricos sin entradas originales verificables siguen siendo de solo lectura.
+
+## DRX y FRX
+
+**FRX/XRF** registra composición química: el informe PDF de resultados puede extraerse en la pestaña FRX o sus valores pueden introducirse manualmente. **DRX/XRD** registra las fases cristalinas identificadas por un laboratorio en la pestaña DRX. El porcentaje de una fase es opcional y solo debe anotarse si el laboratorio lo cuantificó; no se deduce de las fotografías. Los datos DRX se guardan por muestra y se pueden corregir desde el mismo formulario. DRX y petrografía no sustituyen mediciones FRX ni alteran automáticamente los dictámenes industriales.
 
 ## Petrografía de secciones delgadas
 

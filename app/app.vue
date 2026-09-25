@@ -39,6 +39,7 @@
         <DashboardView v-if="activeTab === 'dashboard'" :samples="samples" :summary-text="summaryText" @navigate="target => { activeTab = target === 'historial' ? 'historial' : 'evaluar'; if (target !== 'historial') subTab = target }" @export="downloadExcel" @open-sample="viewSampleDetails" />
 
         <PetrografiaView v-if="activeTab === 'evaluar' && subTab === 'petrografia'" :samples="samples" :api-base="apiBase" />
+        <DrxView v-else-if="activeTab === 'evaluar' && subTab === 'drx'" :samples="samples" :api-base="apiBase" />
         <EvaluationView v-else-if="activeTab === 'evaluar'" v-model:sub-tab="subTab">
           <template #context>
             <EvaluationContextPanel v-model:options="analysisOptions" :base-options="baseOptions" :is-batch="subTab === 'batch'" />
@@ -60,7 +61,9 @@
     </main>
 
     <SampleDetailDrawer v-model:open="drawerOpen" :sample="selectedSample">
-      <SampleAnalysisDetails :sample="selectedSample" :chemical-fields="chemicalFields" :show-number="showNumber" :chemical-text="chemicalText" :file="evidenceFile" :confirmed="evidenceConfirmed" :replace="replaceEvidence" :loading="evidenceLoading" :api-base="apiBase" @select-evidence="selectEvidence" @update:confirmed="evidenceConfirmed = $event" @update:replace="replaceEvidence = $event" @upload-evidence="uploadEvidence" />
+      <div class="mb-4 flex gap-2"><UButton v-if="!editingSample && selectedSample?.version_evaluacion === 2" color="success" variant="outline" icon="i-heroicons-pencil-square" @click="editingSample = true">Editar datos guardados</UButton><UButton v-if="editingSample" variant="ghost" @click="editingSample = false">Volver al resultado</UButton></div>
+      <EditSampleForm v-if="editingSample" :sample="selectedSample" :chemical-fields="chemicalFields" :api-base="apiBase" @saved="handleSampleUpdated" @cancel="editingSample = false" />
+      <SampleAnalysisDetails v-else :sample="selectedSample" :chemical-fields="chemicalFields" :show-number="showNumber" :chemical-text="chemicalText" :file="evidenceFile" :confirmed="evidenceConfirmed" :replace="replaceEvidence" :loading="evidenceLoading" :api-base="apiBase" @select-evidence="selectEvidence" @update:confirmed="evidenceConfirmed = $event" @update:replace="replaceEvidence = $event" @upload-evidence="uploadEvidence" />
     </SampleDetailDrawer>
 
     <!-- CONFIRM DELETE DIALOG -->
@@ -176,6 +179,7 @@ const evalLoading = ref(false)
 // Detail Drawer state
 const drawerOpen = ref(false)
 const selectedSample = ref(null)
+const editingSample = ref(false)
 
 // Delete Dialog State
 const deleteModalOpen = ref(false)
@@ -207,6 +211,7 @@ async function fetchHistorial() {
   try {
     const data = await $fetch(`${apiBase}/historial`)
     samples.value = data || []
+    if (selectedSample.value) selectedSample.value = samples.value.find(s => s.id_muestra === selectedSample.value.id_muestra) || selectedSample.value
   } catch (e) {
     toast.add({
       title: 'Error de Red',
@@ -437,10 +442,16 @@ async function submitBatchFile() {
 // Visualizer details
 function viewSampleDetails(sample) {
   selectedSample.value = sample
+  editingSample.value = false
   evidenceFile.value = null
   evidenceConfirmed.value = false
   replaceEvidence.value = false
   drawerOpen.value = true
+}
+
+async function handleSampleUpdated() {
+  await fetchHistorial()
+  editingSample.value = false
 }
 
 // Delete Handlers

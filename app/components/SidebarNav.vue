@@ -88,10 +88,11 @@ const navItems = [
     icon: 'i-heroicons-beaker',
     label: 'Evaluar Muestra',
     children: [
-      { id: 'pdf', label: 'Extraer desde PDF' },
-      { id: 'manual', label: 'Entrada manual' },
+      { id: 'pdf', label: 'FRX: extraer informe PDF' },
+      { id: 'manual', label: 'FRX: entrada manual' },
       { id: 'batch', label: 'Carga masiva' },
-      { id: 'petrografia', label: 'Análisis Petrográfico' }
+      { id: 'petrografia', label: 'Secciones delgadas' },
+      { id: 'drx', label: 'DRX: fases minerales' }
     ]
   },
   { id: 'historial', icon: 'i-heroicons-table-cells', label: 'Historial y Base de Datos' }
