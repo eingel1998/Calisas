@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false })
 const modelValue = defineModel<string | number | null>('modelValue', { default: null })
 defineProps<{ label: string; help?: string }>()
 </script>

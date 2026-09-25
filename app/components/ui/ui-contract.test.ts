@@ -13,6 +13,7 @@ it('mantiene los contratos base de interfaz', () => {
   const table = component('AppTable')
 
   expect(field).toContain("'modelValue'")
+  expect(field).toContain('inheritAttrs: false')
   expect(field).toContain('<UInput')
   expect(select).toContain('<USelect')
   expect(section).toContain('<slot')
@@ -25,4 +26,18 @@ it('usa la barra lateral compartida', () => {
   expect(app).toContain('<SidebarNav')
   expect(sidebar).toContain("{ id: 'pdf'")
   expect(sidebar).toContain("defineEmits(['navigate'])")
+})
+
+it('separa los flujos de evaluación de la vista principal', () => {
+  const evaluation = readFileSync(resolve('app/components/evaluation/EvaluationView.vue'), 'utf8')
+  const context = readFileSync(resolve('app/components/evaluation/EvaluationContextPanel.vue'), 'utf8')
+  const pdf = readFileSync(resolve('app/components/evaluation/PdfEvaluationPanel.vue'), 'utf8')
+  const manual = readFileSync(resolve('app/components/evaluation/ManualEvaluationForm.vue'), 'utf8')
+  const batch = readFileSync(resolve('app/components/evaluation/BatchEvaluationPanel.vue'), 'utf8')
+
+  expect(evaluation).toContain("defineModel<string>('subTab'")
+  expect(context).toContain("defineModel<any>('options'")
+  expect(pdf).toContain("defineModel<any>('result'")
+  expect(manual).toContain("defineModel<any>('form'")
+  expect(batch).toContain("defineEmits(['select-file', 'submit'])")
 })
