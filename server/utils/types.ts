@@ -46,5 +46,6 @@ export type ResultadoEvaluacion = Composicion & {
 }
 export type MuestraDB = Partial<ResultadoEvaluacion> & {
   id_muestra: string; drx: string | null; petrografia: string | null
+  coordenadas_muestreo: string | null; direccion_muestreo: string | null
   archivo_fuente: string; fecha_registro: string; dictamenes_json: string
 }

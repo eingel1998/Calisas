@@ -63,7 +63,7 @@ function getClient(): Client {
 export async function ensureSchema(db: Client = getClient()): Promise<void> {
   await db.execute(SCHEMA_SQL)
   const columns = await db.execute('PRAGMA table_info(muestras)')
-  for (const [name, type] of [['contexto_json', 'TEXT'], ['version_evaluacion', 'INTEGER'], ['interpretacion_ia', 'TEXT'], ['interpretacion_fecha', 'TEXT'], ['fecha_modificacion', 'TEXT']]) {
+  for (const [name, type] of [['contexto_json', 'TEXT'], ['version_evaluacion', 'INTEGER'], ['interpretacion_ia', 'TEXT'], ['interpretacion_fecha', 'TEXT'], ['fecha_modificacion', 'TEXT'], ['coordenadas_muestreo', 'TEXT'], ['direccion_muestreo', 'TEXT']]) {
     if (!columns.rows.some(row => row.name === name)) await db.execute(`ALTER TABLE muestras ADD COLUMN ${name} ${type}`)
   }
   await db.execute(`CREATE TABLE IF NOT EXISTS evidencias (
@@ -86,13 +86,19 @@ export async function ensureSchema(db: Client = getClient()): Promise<void> {
     id_muestra TEXT PRIMARY KEY, laboratorio TEXT, fecha_ensayo TEXT,
     observaciones TEXT, fecha_registro TEXT NOT NULL
   )`)
+  await db.execute(`CREATE TABLE IF NOT EXISTS analisis_termicos (
+    id_muestra TEXT PRIMARY KEY, tecnica TEXT NOT NULL, laboratorio TEXT,
+    fecha_ensayo TEXT, atmosfera TEXT, tasa_calentamiento REAL,
+    temperatura_inicio REAL, temperatura_fin REAL, temperatura_evento REAL,
+    perdida_masa REAL, observaciones TEXT, fecha_registro TEXT NOT NULL
+  )`)
 }
 
 export function error_db(statusCode: number, message: string): Error & { statusCode: number } {
   return Object.assign(new Error(message), { statusCode, statusMessage: message })
 }
 
-const CAMPOS = `id_muestra caco3 cao mgo sio2 fe2o3 al2o3 so3 na2o k2o p2o5 pb cd as_ppm drx petrografia loi res_insol alcalis lsf sm am c3s c2s c3a c4af estado_eval archivo_fuente fecha_registro dictamenes_json pn blancura tamano_particula humedad cao_disponible cao_reactivo resistencia absorcion contexto_json version_evaluacion`.split(' ')
+const CAMPOS = `id_muestra caco3 cao mgo sio2 fe2o3 al2o3 so3 na2o k2o p2o5 pb cd as_ppm drx petrografia loi res_insol alcalis lsf sm am c3s c2s c3a c4af estado_eval archivo_fuente fecha_registro dictamenes_json pn blancura tamano_particula humedad cao_disponible cao_reactivo resistencia absorcion contexto_json version_evaluacion coordenadas_muestreo direccion_muestreo`.split(' ')
 
 export async function registrar_muestras_db(datos: Record<string, any>[], db: Client = getClient()): Promise<void> {
   const tx = await db.transaction('write')
@@ -154,6 +160,7 @@ export async function obtener_muestras_db(db: Client = getClient()): Promise<any
 
 export async function borrar_muestra_db(id_muestra: string, db: Client = getClient()): Promise<void> {
   await db.batch([
+    { sql: 'DELETE FROM analisis_termicos WHERE id_muestra = ?', args: [id_muestra] },
     { sql: 'DELETE FROM drx_fases WHERE id_muestra = ?', args: [id_muestra] },
     { sql: 'DELETE FROM drx_ensayos WHERE id_muestra = ?', args: [id_muestra] },
     { sql: 'DELETE FROM petrografia_imagenes WHERE id_muestra = ?', args: [id_muestra] },
@@ -164,11 +171,12 @@ export async function borrar_muestra_db(id_muestra: string, db: Client = getClie
 }
 
 export async function obtener_petrografia_db(id: string, db: Client = getClient()) {
-  const muestra = await db.execute({ sql: 'SELECT id_muestra FROM muestras WHERE id_muestra = ?', args: [id] })
+  const muestra = await db.execute({ sql: 'SELECT id_muestra, coordenadas_muestreo, direccion_muestreo FROM muestras WHERE id_muestra = ?', args: [id] })
   if (!muestra.rows.length) throw error_db(404, 'La muestra no existe')
   const informe = await db.execute({ sql: 'SELECT informe, estado, datos_json, modelo, fecha FROM petrografias WHERE id_muestra = ?', args: [id] })
   const imagenes = await db.execute({ sql: 'SELECT id, nombre, condicion FROM petrografia_imagenes WHERE id_muestra = ? ORDER BY id', args: [id] })
-  return { ...(informe.rows[0] || {}), datos: informe.rows[0] ? leerJSON(informe.rows[0].datos_json) : null, imagenes: imagenes.rows }
+  return { ...(informe.rows[0] || {}), datos: informe.rows[0] ? leerJSON(informe.rows[0].datos_json) : null, imagenes: imagenes.rows,
+    muestreo: { coordenadas: muestra.rows[0].coordenadas_muestreo, direccion: muestra.rows[0].direccion_muestreo } }
 }
 
 export async function guardar_petrografia_db(id: string, informe: string, estado: string, datos: object, modelo: string | null, imagenes: Array<{ nombre: string; condicion: string; tipo: string; contenido: Uint8Array }> = [], db: Client = getClient()) {
@@ -210,6 +218,26 @@ export async function guardar_drx_db(id: string, ensayo: { laboratorio: string; 
       ON CONFLICT(id_muestra) DO UPDATE SET laboratorio=excluded.laboratorio, fecha_ensayo=excluded.fecha_ensayo, observaciones=excluded.observaciones, fecha_registro=excluded.fecha_registro`, args: [id, ensayo.laboratorio, ensayo.fecha_ensayo || null, ensayo.observaciones, new Date().toISOString()] })
     await tx.execute({ sql: 'DELETE FROM drx_fases WHERE id_muestra = ?', args: [id] })
     for (const fase of ensayo.fases) await tx.execute({ sql: 'INSERT INTO drx_fases (id_muestra, mineral, porcentaje) VALUES (?, ?, ?)', args: [id, fase.mineral, fase.porcentaje] })
+    await tx.commit()
+  } finally { tx.close() }
+}
+
+export async function obtener_analisis_termico_db(id: string, db: Client = getClient()) {
+  const muestra = await db.execute({ sql: 'SELECT id_muestra FROM muestras WHERE id_muestra = ?', args: [id] })
+  if (!muestra.rows.length) throw error_db(404, 'La muestra no existe')
+  const res = await db.execute({ sql: 'SELECT tecnica, laboratorio, fecha_ensayo, atmosfera, tasa_calentamiento, temperatura_inicio, temperatura_fin, temperatura_evento, perdida_masa, observaciones, fecha_registro FROM analisis_termicos WHERE id_muestra = ?', args: [id] })
+  return res.rows[0] || null
+}
+
+export async function guardar_analisis_termico_db(id: string, dato: Record<string, string | number | null>, db: Client = getClient()) {
+  const campos = ['tecnica', 'laboratorio', 'fecha_ensayo', 'atmosfera', 'tasa_calentamiento', 'temperatura_inicio', 'temperatura_fin', 'temperatura_evento', 'perdida_masa', 'observaciones']
+  const tx = await db.transaction('write')
+  try {
+    const muestra = await tx.execute({ sql: 'SELECT id_muestra FROM muestras WHERE id_muestra = ?', args: [id] })
+    if (!muestra.rows.length) throw error_db(404, 'La muestra no existe')
+    await tx.execute({ sql: `INSERT INTO analisis_termicos (id_muestra, ${campos.join(', ')}, fecha_registro) VALUES (${Array(campos.length + 2).fill('?').join(', ')})
+      ON CONFLICT(id_muestra) DO UPDATE SET ${campos.map(c => `${c}=excluded.${c}`).join(', ')}, fecha_registro=excluded.fecha_registro`,
+      args: [id, ...campos.map(c => dato[c] ?? null), new Date().toISOString()] })
     await tx.commit()
   } finally { tx.close() }
 }

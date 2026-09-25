@@ -17,6 +17,7 @@ const emit = defineEmits(['select-evidence', 'update:confirmed', 'update:replace
   <div class="space-y-6">
     <div class="space-y-2 rounded-xl border bg-slate-50 p-4"><p class="font-semibold">{{ sample?.resumen ? `${sample.resumen.aptos} cumplen · ${sample.resumen.no_aptos} incumplen · ${sample.resumen.pendientes} requieren ensayos` : 'Resultado no disponible' }}</p><p v-if="sample?.version_evaluacion !== 2" class="text-sm text-amber-800">Histórico · evaluación anterior. Se conserva sin recalcular.</p><p class="text-xs text-slate-600">Cumplimiento de los criterios configurados; no constituye certificación normativa.</p></div>
     <IndustrialProfiles :dictamenes="sample?.dictamenes" :chemical-text="chemicalText" :show-number="showNumber" />
+    <AppSection title="Lugar de muestreo"><p class="text-sm">Coordenadas: {{ sample?.coordenadas_muestreo || 'Sin dato' }}</p><p class="text-sm">Dirección específica: {{ sample?.direccion_muestreo || 'Sin dato' }}</p></AppSection>
     <AppSection title="Datos del análisis">
       <p class="text-sm">Base declarada: {{ sample?.contexto?.base || 'No registrada' }} · Base de trazas: {{ sample?.contexto?.base_trazas || 'No registrada' }}</p>
       <p v-if="sample?.contexto?.convertir" class="text-sm">Conversión aplicada a base seca. LOI: {{ showNumber(sample.contexto.loi, '%') }}.</p>

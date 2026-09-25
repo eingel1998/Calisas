@@ -15,8 +15,8 @@
     <div v-else class="min-h-screen bg-slate-50 text-slate-800 flex">
     <SidebarNav
       :active-tab="activeTab"
-      :sub-analisis="subTab"
-      @navigate="({ tab, subAnalisis }) => { activeTab = tab; if (subAnalisis) subTab = subAnalisis }"
+      :sub-analisis="activeAnalysisTab"
+      @navigate="({ tab, subAnalisis }) => { activeTab = tab; if (subAnalisis) subTab = subAnalisis === 'geoquimica' ? 'pdf' : subAnalisis }"
     />
 
     <!-- Main Content Area -->
@@ -36,13 +36,17 @@
       <!-- Content Views -->
       <div class="p-8 max-w-7xl w-full mx-auto flex-1">
 
+        <nav v-if="activeTab === 'evaluar'" aria-label="Áreas de análisis" class="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+          <UButton v-for="tab in analysisTabs" :key="tab.id" :color="activeAnalysisTab === tab.id ? 'success' : 'neutral'" :variant="activeAnalysisTab === tab.id ? 'solid' : 'ghost'" @click="subTab = tab.id === 'geoquimica' ? 'pdf' : tab.id">{{ tab.label }}</UButton>
+        </nav>
+
         <DashboardView v-if="activeTab === 'dashboard'" :samples="samples" :summary-text="summaryText" @navigate="target => { activeTab = target === 'historial' ? 'historial' : 'evaluar'; if (target !== 'historial') subTab = target }" @export="downloadExcel" @open-sample="viewSampleDetails" />
 
         <PetrografiaView v-if="activeTab === 'evaluar' && subTab === 'petrografia'" :samples="samples" :api-base="apiBase" />
-        <DrxView v-else-if="activeTab === 'evaluar' && subTab === 'drx'" :samples="samples" :api-base="apiBase" />
+        <TermicasView v-else-if="activeTab === 'evaluar' && subTab === 'termicas'" :samples="samples" :api-base="apiBase" />
         <EvaluationView v-else-if="activeTab === 'evaluar'" v-model:sub-tab="subTab">
           <template #context>
-            <EvaluationContextPanel v-model:options="analysisOptions" :base-options="baseOptions" :is-batch="subTab === 'batch'" />
+            <EvaluationContextPanel v-if="subTab !== 'drx'" v-model:options="analysisOptions" :base-options="baseOptions" :is-batch="subTab === 'batch'" />
           </template>
           <template #pdf>
             <PdfEvaluationPanel v-model:result="ocrResult" :file-name="uploadedFileName" :extracting="ocrLoading" :saving="evalLoading" :chemical-fields="chemicalFields" :drx-options="drxOptions" :petrografia-options="petrografiaOptions" :chemical-text="chemicalText" @select-file="handleFileUpload" @clear-file="clearUploadedFile" @extract="processUploadedFile" @clear-result="clearOcr" @save="saveEvaluation" />
@@ -53,6 +57,7 @@
           <template #batch>
             <BatchEvaluationPanel :file-name="batchFileName" :has-file="Boolean(batchFile)" :loading="batchLoading" @select-file="handleBatchFile" @submit="submitBatchFile" />
           </template>
+          <template #drx><DrxView :samples="samples" :api-base="apiBase" /></template>
         </EvaluationView>
 
         <HistorialView v-if="activeTab === 'historial'" v-model:search-query="searchQuery" v-model:filter-status="filterStatus" :samples="filteredSamples" :show-number="showNumber" :summary-text="summaryText" @export="downloadExcel" @open-sample="viewSampleDetails" @delete-sample="confirmDeleteSample" />
@@ -114,6 +119,12 @@ async function handleLogout() {
 
 const activeTab = ref('dashboard')
 const subTab = ref('pdf')
+const analysisTabs = [
+  { id: 'petrografia', label: 'Análisis Petrografía' },
+  { id: 'geoquimica', label: 'Evaluación geoquímica' },
+  { id: 'termicas', label: 'Análisis de propiedades térmicas' },
+]
+const activeAnalysisTab = computed(() => subTab.value === 'petrografia' || subTab.value === 'termicas' ? subTab.value : 'geoquimica')
 
 // Data State
 const samples = ref([])
@@ -141,6 +152,8 @@ function evaluationContext(tab, originales = []) {
 // Manual Form State
 const manualForm = ref({
   id_muestra: '',
+  coordenadas_muestreo: '',
+  direccion_muestreo: '',
   caco3: null,
   cao: null,
   mgo: null,
@@ -268,6 +281,8 @@ async function processUploadedFile() {
     ocrResult.value = {
       datos: {
         muestra_id: data.datos.muestra_id || '',
+        coordenadas_muestreo: '',
+        direccion_muestreo: '',
         archivo_fuente: uploadedFileName.value,
         originales: data.datos.originales || [],
         metadatos: data.datos.metadatos || {},
@@ -309,6 +324,8 @@ async function saveEvaluation(payload) {
   try {
     const bodyPayload = {
       id_muestra: payload.muestra_id,
+      coordenadas_muestreo: payload.coordenadas_muestreo,
+      direccion_muestreo: payload.direccion_muestreo,
       caco3: nullable(payload.caco3),
       cao: nullable(payload.cao),
       mgo: nullable(payload.mgo),
@@ -363,6 +380,8 @@ async function submitManualForm() {
       method: 'POST',
       body: {
         id_muestra: manualForm.value.id_muestra,
+        coordenadas_muestreo: manualForm.value.coordenadas_muestreo,
+        direccion_muestreo: manualForm.value.direccion_muestreo,
         caco3: nullable(manualForm.value.caco3),
         cao: nullable(manualForm.value.cao),
         mgo: nullable(manualForm.value.mgo),
@@ -391,7 +410,7 @@ async function submitManualForm() {
     contexts.value.manual = newContext()
     // Reset form
     manualForm.value = {
-      id_muestra: '', caco3: null, cao: null, mgo: null, sio2: null, fe2o3: null, al2o3: null, so3: null,
+      id_muestra: '', coordenadas_muestreo: '', direccion_muestreo: '', caco3: null, cao: null, mgo: null, sio2: null, fe2o3: null, al2o3: null, so3: null,
       na2o: null, k2o: null, p2o5: null, pb: null, cd: null, as_ppm: null, drx: null, petrografia: null,
       extras: { pn: null, blancura: null, tamano_particula: null, humedad: null, cao_disponible: null, cao_reactivo: null, resistencia: null, absorcion: null }
     }

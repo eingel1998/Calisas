@@ -24,7 +24,7 @@ it('usa la barra lateral compartida', () => {
   const app = readFileSync(resolve('app/app.vue'), 'utf8')
   const sidebar = readFileSync(resolve('app/components/SidebarNav.vue'), 'utf8')
   expect(app).toContain('<SidebarNav')
-  expect(sidebar).toContain("{ id: 'pdf'")
+  for (const tab of ['petrografia', 'geoquimica', 'termicas']) expect(sidebar).toContain(`{ id: '${tab}'`)
   expect(sidebar).toContain("defineEmits(['navigate'])")
 })
 

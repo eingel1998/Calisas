@@ -5,7 +5,7 @@ export async function exportar_historial_excel(muestras: any[]): Promise<Buffer>
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Calizas Historial')
   const campos: Record<string,string> = {
-    id_muestra:'ID Muestra',caco3:'CaCO₃ (%)',cao:'CaO (%)',mgo:'MgO (%)',sio2:'SiO₂ (%)',fe2o3:'Fe₂O₃ (%)',al2o3:'Al₂O₃ (%)',so3:'SO₃ (%)',na2o:'Na₂O (%)',k2o:'K₂O (%)',p2o5:'P₂O₅ (%)',pb:'Pb (ppm)',cd:'Cd (ppm)',as_ppm:'As (ppm)',drx:'DRX',petrografia:'Petrografía',loi:'LOI (%)',res_insol:'Residuo Insoluble (%)',alcalis:'Álcalis (Na₂Oeq) (%)',lsf:'LSF',sm:'Módulo de Sílice',am:'Módulo de Alúmina',c3s:'C₃S histórico (%)',c2s:'C₂S histórico (%)',c3a:'C₃A histórico (%)',c4af:'C₄AF histórico (%)',archivo_fuente:'Archivo Fuente',fecha_registro:'Fecha Registro',
+    id_muestra:'ID Muestra',coordenadas_muestreo:'Coordenadas de muestreo',direccion_muestreo:'Dirección específica de muestreo',caco3:'CaCO₃ (%)',cao:'CaO (%)',mgo:'MgO (%)',sio2:'SiO₂ (%)',fe2o3:'Fe₂O₃ (%)',al2o3:'Al₂O₃ (%)',so3:'SO₃ (%)',na2o:'Na₂O (%)',k2o:'K₂O (%)',p2o5:'P₂O₅ (%)',pb:'Pb (ppm)',cd:'Cd (ppm)',as_ppm:'As (ppm)',drx:'DRX',petrografia:'Petrografía',loi:'LOI (%)',res_insol:'Residuo Insoluble (%)',alcalis:'Álcalis (Na₂Oeq) (%)',lsf:'LSF',sm:'Módulo de Sílice',am:'Módulo de Alúmina',c3s:'C₃S histórico (%)',c2s:'C₂S histórico (%)',c3a:'C₃A histórico (%)',c4af:'C₄AF histórico (%)',archivo_fuente:'Archivo Fuente',fecha_registro:'Fecha Registro',
   }
   ws.addRow([...Object.values(campos),'Versión de evaluación','Base del informe','Base de trazas','Usos que cumplen','Usos que incumplen','Usos con pendientes','Estado histórico','Evidencia PDF'])
   const dictamenes=wb.addWorksheet('Dictámenes')

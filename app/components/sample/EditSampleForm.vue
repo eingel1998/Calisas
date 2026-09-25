@@ -17,6 +17,7 @@ watch(() => props.sample, (sample) => {
     datos: Object.fromEntries(props.chemicalFields.filter(f => f.key !== 'loi').map(f => [f.key, c.entrada?.[f.key] ?? sample[f.key] ?? null])),
     extras: Object.fromEntries(EXTRAS.map(k => [k, sample[k] ?? c.usados?.[k] ?? null])),
     drx: sample.drx || '', petrografia: sample.petrografia || '',
+    coordenadas_muestreo: sample.coordenadas_muestreo || '', direccion_muestreo: sample.direccion_muestreo || '',
     contexto: { base: c.base || 'desconocida', base_trazas: c.base_trazas || 'desconocida', convertir: Boolean(c.convertir), estimar_loi: Boolean(c.estimar_loi), loi: c.procedencia?.loi === 'estimado' ? null : c.loi ?? null, originales: c.originales || [], texto_reporte: c.texto_reporte || '' },
   }
 }, { immediate: true })
@@ -25,7 +26,8 @@ async function save() {
   try {
     await $fetch(`${props.apiBase}/historial/${encodeURIComponent(props.sample.id_muestra)}`, {
       method: 'PUT', body: { fecha_modificacion: props.sample.fecha_modificacion || null,
-        datos: { ...form.value.datos, id_muestra: props.sample.id_muestra, extras: form.value.extras, drx: form.value.drx, petrografia: form.value.petrografia, contexto: form.value.contexto } },
+        datos: { ...form.value.datos, id_muestra: props.sample.id_muestra, extras: form.value.extras, drx: form.value.drx, petrografia: form.value.petrografia,
+          coordenadas_muestreo: form.value.coordenadas_muestreo, direccion_muestreo: form.value.direccion_muestreo, contexto: form.value.contexto } },
     })
     toast.add({ title: 'Muestra actualizada y dictámenes recalculados', color: 'success' })
     emit('saved')
@@ -37,6 +39,7 @@ async function save() {
 <template>
   <form v-if="sample?.version_evaluacion === 2 && form.contexto" class="space-y-5" @submit.prevent="save">
     <p class="text-sm text-slate-600">Edita las entradas originales de {{ sample.id_muestra }}. Los dictámenes se recalcularán; el PDF de evidencia y las fotografías se conservan.</p>
+    <div class="grid gap-3 md:grid-cols-2"><AppField v-model="form.coordenadas_muestreo" label="Coordenadas de muestreo" /><AppField v-model="form.direccion_muestreo" label="Dirección específica de muestreo" /></div>
     <div class="grid gap-3 md:grid-cols-2"><AppField v-for="field in chemicalFields.filter(f => f.key !== 'loi')" :key="field.key" v-model.number="form.datos[field.key]" :label="`${field.label} (${field.unit})`" type="number" min="0" :max="field.unit === '%' ? 100 : undefined" step="any" /></div>
     <div class="grid gap-3 md:grid-cols-2"><AppField v-for="key in EXTRAS" :key="key" v-model.number="form.extras[key]" :label="extraLabels[key]" type="number" min="0" step="any" /></div>
     <div class="grid gap-3 md:grid-cols-2"><AppSelect v-model="form.contexto.base" label="Base analítica" :items="options" /><AppSelect v-model="form.contexto.base_trazas" label="Base de trazas" :items="options" /><AppField v-model.number="form.contexto.loi" label="LOI medido (%)" type="number" min="0" max="100" step="any" /><AppField v-model="form.drx" label="DRX dominante (dato anterior)" /><AppField v-model="form.petrografia" label="Textura petrográfica (dato anterior)" /></div>

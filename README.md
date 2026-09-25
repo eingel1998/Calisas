@@ -16,6 +16,8 @@ Node 20+. SQLite local (`calizas.db`) por defecto; `TURSO_URL` y `TURSO_TOKEN` p
 
 ## Ingreso y análisis
 
+La navegación de análisis tiene tres pestañas: **Análisis Petrografía**, **Evaluación geoquímica** y **Análisis de propiedades térmicas**. Dentro de geoquímica están FRX por PDF, entrada manual, carga masiva y registro de fases DRX. Cada muestra puede tener **coordenadas** (indica sistema de referencia y zona si son UTM) y **dirección específica de muestreo**. Se capturan en PDF/manual o en columnas del lote, se editan desde el detalle y se exportan al Excel.
+
 - PDF de tabla XRF Omnian (`Sample results`, como M7 T): extrae compuestos, valores, unidades e ID; conserva también los elementos no usados por los perfiles.
 - Entrada manual: datos químicos y ensayos opcionales.
 - Lote CSV/XLSX: columna `ID Muestra` y composición (`CaCO3`, `CaO`, `MgO`, `SiO2`, `Fe2O3`, `Al2O3`, `SO3`, `Na2O`, `K2O`, `P2O5`, `Pb`, `Cd`, `As`). Se admiten subíndices y unidades en encabezados. Ensayos: `PN`, `Blancura`, `TamanoParticula`, `Humedad`, `CaODisponible`, `CaOReactivo`, `Resistencia`, `Absorcion`, `LOI`. El formato antiguo XLS no es compatible.
@@ -37,6 +39,8 @@ Desde el detalle de una muestra actual se pueden editar los valores de entrada y
 ## DRX y FRX
 
 **FRX/XRF** registra composición química: el informe PDF de resultados puede extraerse en la pestaña FRX o sus valores pueden introducirse manualmente. **DRX/XRD** registra las fases cristalinas identificadas por un laboratorio en la pestaña DRX. El porcentaje de una fase es opcional y solo debe anotarse si el laboratorio lo cuantificó; no se deduce de las fotografías. Los datos DRX se guardan por muestra y se pueden corregir desde el mismo formulario. DRX y petrografía no sustituyen mediciones FRX ni alteran automáticamente los dictámenes industriales.
+
+**Propiedades térmicas** registra por muestra una medición TGA/DTG, DSC, DTA o TGA-DSC: laboratorio, fecha, atmósfera, tasa de calentamiento, intervalo de temperaturas, temperatura de un evento, pérdida de masa y observaciones. Todos los números son resultados de ensayo opcionales; la aplicación no los estima desde química o imágenes. El formulario permite corregir el registro guardado.
 
 ## Petrografía de secciones delgadas
 

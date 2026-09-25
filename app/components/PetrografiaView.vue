@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-const props = defineProps<{ samples: Array<{ id_muestra: string }>; apiBase: string }>()
+const props = defineProps<{ samples: Array<{ id_muestra: string; coordenadas_muestreo?: string | null; direccion_muestreo?: string | null }>; apiBase: string }>()
 const emit = defineEmits(['saved'])
 const toast = useToast()
 const id = ref('')
@@ -84,13 +84,14 @@ async function guardar() {
 
 <template>
   <div class="space-y-6">
-    <div><h2 class="text-2xl font-bold">Análisis petrográfico</h2><p class="text-sm text-slate-600">Las observaciones del modelo son un borrador. Revisa la evidencia antes de marcar el informe como revisado.</p></div>
+    <div><h2 class="text-2xl font-bold">Análisis petrográfico</h2><p class="text-sm text-slate-600">Las observaciones del modelo son un borrador. Revisa la evidencia antes de marcar el informe como revisado. Si la muestra aún no existe, regístrala en Evaluación geoquímica → FRX manual; los valores químicos pueden quedar vacíos.</p></div>
     <UCard><div class="space-y-4">
       <label class="block text-sm font-semibold">Muestra registrada
         <select v-model="id" class="mt-1 block w-full rounded-md border border-slate-300 p-2"><option value="">Selecciona una muestra</option><option v-for="sample in samples" :key="sample.id_muestra" :value="sample.id_muestra">{{ sample.id_muestra }}</option></select>
       </label>
       <div v-if="id" class="space-y-4">
-        <div class="grid gap-3 md:grid-cols-2"><AppField v-model="datos.localizacion" label="Localización" /><AppField v-model="datos.unidad" label="Unidad o formación geológica" /><AppField v-model="datos.coordenadas" label="Coordenadas" /><AppField v-model="datos.tipo_muestra" label="Tipo de muestra" /><AppField v-model="datos.aumento" label="Aumento microscópico" /><AppField v-model="datos.escala" label="Escala" /><AppField v-model="datos.objetivo" label="Objetivo del estudio" /></div>
+        <p class="text-sm text-slate-600">Coordenadas: {{ samples.find(s => s.id_muestra === id)?.coordenadas_muestreo || 'Sin dato' }} · Dirección específica: {{ samples.find(s => s.id_muestra === id)?.direccion_muestreo || 'Sin dato' }}. Estos datos se editan desde el detalle de la muestra.</p>
+        <div class="grid gap-3 md:grid-cols-2"><AppField v-model="datos.unidad" label="Unidad o formación geológica" /><AppField v-model="datos.tipo_muestra" label="Tipo de muestra" /><AppField v-model="datos.aumento" label="Aumento microscópico" /><AppField v-model="datos.escala" label="Escala" /><AppField v-model="datos.objetivo" label="Objetivo del estudio" /></div>
         <label class="block text-sm font-semibold">Fotografías de secciones delgadas (1 a 4)
           <input type="file" accept="image/jpeg,image/png,image/webp" multiple class="mt-1 block" @change="selectFiles" />
         </label>

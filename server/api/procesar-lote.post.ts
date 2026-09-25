@@ -16,7 +16,9 @@ export default defineEventHandler(async (event) => {
       try {
         const datos = Object.fromEntries(CAMPOS.map(k=>[k,row[k==='as_ppm'?'AS':k.toUpperCase()]]))
         const extras=Object.fromEntries(EXTRAS.map(k=>[k,row[k.replaceAll('_','').toUpperCase()]]))
-        return evaluar_muestra({...datos,id_muestra:row.IDMUESTRA==null?'':String(row.IDMUESTRA),drx:row.DRX,petrografia:row.PETROGRAFIA,archivo_fuente:file.filename,contexto:{...contexto,loi:row.LOI??contexto?.loi},extras})
+        return evaluar_muestra({...datos,id_muestra:row.IDMUESTRA==null?'':String(row.IDMUESTRA),drx:row.DRX,petrografia:row.PETROGRAFIA,
+          coordenadas_muestreo:row.COORDENADASMUESTREO??row.COORDENADAS,direccion_muestreo:row.DIRECCIONMUESTREO??row.DIRECCION,
+          archivo_fuente:file.filename,contexto:{...contexto,loi:row.LOI??contexto?.loi},extras})
       } catch(e:any) { throw createError({statusCode:400,statusMessage:`Fila ${idx+2}: ${e.message}`}) }
     })
     await registrar_muestras_db(muestras)

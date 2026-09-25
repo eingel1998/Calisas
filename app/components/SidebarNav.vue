@@ -7,7 +7,7 @@
           <span class="text-3xl">🪨</span>
           <div>
               <h1 class="font-bold text-lg tracking-tight leading-none text-slate-100">Calizas</h1>
-              <span class="text-xs text-emerald-400 font-medium">Evaluación Geoquímica</span>
+              <span class="text-xs text-emerald-400 font-medium">Análisis de calizas</span>
           </div>
         </div>
       </div>
@@ -88,11 +88,9 @@ const navItems = [
     icon: 'i-heroicons-beaker',
     label: 'Evaluar Muestra',
     children: [
-      { id: 'pdf', label: 'FRX: extraer informe PDF' },
-      { id: 'manual', label: 'FRX: entrada manual' },
-      { id: 'batch', label: 'Carga masiva' },
-      { id: 'petrografia', label: 'Secciones delgadas' },
-      { id: 'drx', label: 'DRX: fases minerales' }
+      { id: 'petrografia', label: 'Análisis Petrografía' },
+      { id: 'geoquimica', label: 'Evaluación geoquímica' },
+      { id: 'termicas', label: 'Análisis de propiedades térmicas' }
     ]
   },
   { id: 'historial', icon: 'i-heroicons-table-cells', label: 'Historial y Base de Datos' }

@@ -298,7 +298,10 @@ export function evaluar_muestra(req: Record<string,any>) {
   const resultado:ResultadoEvaluacion={...datos,loi,res_insol:null,alcalis,lsf,sm,am,c3s:null,c2s:null,c3a:null,c4af:null,
     advertencias_geol:avisos,interp_cesar:[],interp_sm:'Relación calculada; no certifica aptitud de la roca.',interp_am:'Relación calculada; no certifica aptitud de la roca.',
     errores_norma:[],cumple_norma:null,estado_eval:null,dictamenes,resumen:resumir_dictamenes(dictamenes),contexto,version_evaluacion:2}
-  return {...resultado,id_muestra:req.id_muestra.trim(),drx:typeof req.drx==='string'?req.drx.trim()||null:null,petrografia:typeof req.petrografia==='string'?req.petrografia.trim()||null:null,archivo_fuente:typeof req.archivo_fuente==='string'?req.archivo_fuente:'Manual',fecha_registro:new Date().toISOString(),extras}
+  for (const campo of ['coordenadas_muestreo', 'direccion_muestreo']) if (req[campo] != null && (typeof req[campo] !== 'string' || req[campo].length > 500)) errorValidacion(`${campo}: texto inválido o demasiado largo`)
+  return {...resultado,id_muestra:req.id_muestra.trim(),drx:typeof req.drx==='string'?req.drx.trim()||null:null,petrografia:typeof req.petrografia==='string'?req.petrografia.trim()||null:null,
+    coordenadas_muestreo:req.coordenadas_muestreo?.trim()||null,direccion_muestreo:req.direccion_muestreo?.trim()||null,
+    archivo_fuente:typeof req.archivo_fuente==='string'?req.archivo_fuente:'Manual',fecha_registro:new Date().toISOString(),extras}
 }
 
 // Compatibilidad de llamadas internas; no infiere una base ni mediciones ausentes.
