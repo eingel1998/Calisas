@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 
 const props = defineProps<{ samples: Array<{ id_muestra: string; coordenadas_muestreo?: string | null; direccion_muestreo?: string | null }>; apiBase: string }>()
+const emit = defineEmits(['register-sample'])
 const toast = useToast()
 const id = ref('')
 const loading = ref(false)
@@ -34,7 +35,8 @@ async function save() {
 
 <template>
   <div class="space-y-5"><div><h2 class="text-2xl font-bold">Análisis de propiedades térmicas</h2><p class="text-sm text-slate-600">Registra resultados medidos por el laboratorio. La pérdida de masa y las temperaturas no se deducen de FRX, DRX ni de fotografías. Si la muestra aún no existe, regístrala en Evaluación geoquímica → FRX manual; los químicos pueden quedar vacíos.</p></div>
-    <UCard><form class="space-y-4" @submit.prevent="save">
+    <UCard v-if="!samples.length"><div class="space-y-3"><p class="text-sm text-slate-600">Registra primero la muestra para asociarle un ensayo térmico. Los valores químicos pueden quedar vacíos.</p><UButton color="success" @click="emit('register-sample')">Registrar muestra</UButton></div></UCard>
+    <UCard v-else><form class="space-y-4" @submit.prevent="save">
       <label class="block text-sm font-semibold">Muestra registrada<select v-model="id" required class="mt-1 block w-full rounded border p-2"><option value="">Selecciona una muestra</option><option v-for="sample in samples" :key="sample.id_muestra" :value="sample.id_muestra">{{ sample.id_muestra }}</option></select></label>
       <div v-if="id" class="space-y-4"><p class="text-sm text-slate-600">Coordenadas: {{ samples.find(s => s.id_muestra === id)?.coordenadas_muestreo || 'Sin dato' }} · Dirección: {{ samples.find(s => s.id_muestra === id)?.direccion_muestreo || 'Sin dato' }}</p>
         <div class="grid gap-3 md:grid-cols-2"><label class="block text-sm font-semibold">Técnica<select v-model="form.tecnica" class="mt-1 block w-full rounded border p-2"><option>TGA/DTG</option><option>DSC</option><option>DTA</option><option>TGA-DSC</option></select></label><AppField v-model="form.laboratorio" label="Laboratorio / fuente" /><AppField v-model="form.fecha_ensayo" label="Fecha del ensayo" type="date" /><AppField v-model="form.atmosfera" label="Atmósfera del ensayo" placeholder="Ej: aire, N₂" /><AppField v-for="field in fields" :key="field.key" v-model.number="form[field.key]" :label="field.label" type="number" min="0" :max="field.max" step="any" /></div>

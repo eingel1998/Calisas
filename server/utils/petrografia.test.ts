@@ -15,6 +15,8 @@ it('valida imágenes y guarda un informe revisable ligado a la muestra', async (
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0])
     expect(() => validar_imagenes([{ filename: 'mal.jpg', data: Buffer.from('texto'), condicion: 'LP/PPL' }])).toThrow()
     const [imagen] = validar_imagenes([{ filename: 'corte.png', data: png, condicion: 'NX/XPL' }])
+    await guardar_petrografia_db('P1', '', 'borrador', validar_datos_petrografia({ aumento: '10x' }), null, [imagen], db)
+    expect(await obtener_petrografia_db('P1', db)).toMatchObject({ informe: '', estado: 'borrador', imagenes: [{ nombre: 'corte.png' }] })
     await guardar_petrografia_db('P1', 'Observación preliminar', 'borrador', validar_datos_petrografia({ aumento: '10x' }), 'gpt-4.1', [imagen], db)
     const dato = await obtener_petrografia_db('P1', db)
     expect(dato).toMatchObject({ informe: 'Observación preliminar', estado: 'borrador', datos: { aumento: '10x' } })

@@ -12,8 +12,9 @@
         <UButton type="submit" block color="success" :loading="loginLoading">Ingresar</UButton>
       </form>
     </div>
-    <div v-else class="min-h-screen bg-slate-50 text-slate-800 flex">
+    <div v-else class="flex min-h-screen bg-slate-50 text-slate-800">
     <SidebarNav
+      v-model:mobile-open="mobileMenuOpen"
       :active-tab="activeTab"
       :sub-analisis="activeAnalysisTab"
       :can-configure="canConfigure"
@@ -23,31 +24,32 @@
     <!-- Main Content Area -->
     <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
       <!-- Top header bar -->
-      <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 shrink-0">
+      <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-8">
         <div class="flex items-center gap-2">
-          <h2 class="text-xl font-bold text-slate-800 capitalize">{{ activeTab }}</h2>
-          <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">Local DB (SQLite)</span>
+          <UButton class="md:hidden" variant="ghost" color="neutral" icon="i-heroicons-bars-3" aria-label="Abrir menú" @click="mobileMenuOpen = true" />
+          <h2 class="text-xl font-bold text-slate-800">{{ pageTitle }}</h2>
+          <span class="hidden rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600 sm:inline">Local DB (SQLite)</span>
         </div>
         <div class="flex items-center gap-4">
-          <span class="text-sm text-slate-500">Evaluación de usos industriales</span>
+          <span class="hidden text-sm text-slate-500 lg:inline">Evaluación de usos industriales</span>
           <UButton variant="ghost" color="neutral" icon="i-lucide-log-out" size="sm" @click="handleLogout">Salir</UButton>
         </div>
       </header>
 
       <!-- Content Views -->
-      <div class="p-8 max-w-7xl w-full mx-auto flex-1">
+      <div class="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">
 
         <nav v-if="activeTab === 'evaluar'" aria-label="Áreas de análisis" class="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
           <UButton v-for="tab in analysisTabs" :key="tab.id" :color="activeAnalysisTab === tab.id ? 'success' : 'neutral'" :variant="activeAnalysisTab === tab.id ? 'solid' : 'ghost'" @click="subTab = tab.id === 'geoquimica' ? 'pdf' : tab.id">{{ tab.label }}</UButton>
         </nav>
 
-        <DashboardView v-if="activeTab === 'dashboard'" :samples="samples" :summary-text="summaryText" @navigate="target => { activeTab = target === 'historial' ? 'historial' : 'evaluar'; if (target !== 'historial') subTab = target }" @export="downloadExcel" @open-sample="viewSampleDetails" />
+        <DashboardView v-if="activeTab === 'dashboard'" :samples="samples" :loading="historyLoading" :error="historyError" :summary-text="summaryText" @navigate="target => { activeTab = target === 'historial' ? 'historial' : 'evaluar'; if (target !== 'historial') subTab = target }" @export="downloadExcel" @open-sample="viewSampleDetails" @retry="fetchHistorial" />
 
-        <PetrografiaView v-if="activeTab === 'evaluar' && subTab === 'petrografia'" :samples="samples" :api-base="apiBase" />
-        <TermicasView v-else-if="activeTab === 'evaluar' && subTab === 'termicas'" :samples="samples" :api-base="apiBase" />
-        <EvaluationView v-else-if="activeTab === 'evaluar'" v-model:sub-tab="subTab">
+        <PetrografiaView v-show="activeTab === 'evaluar' && subTab === 'petrografia'" :samples="samples" :api-base="apiBase" @register-sample="subTab = 'manual'" />
+        <TermicasView v-show="activeTab === 'evaluar' && subTab === 'termicas'" :samples="samples" :api-base="apiBase" @register-sample="subTab = 'manual'" />
+        <EvaluationView v-show="activeTab === 'evaluar' && activeAnalysisTab === 'geoquimica'" v-model:sub-tab="subTab">
           <template #context>
-            <EvaluationContextPanel v-if="subTab !== 'drx'" v-model:options="analysisOptions" :base-options="baseOptions" :is-batch="subTab === 'batch'" />
+            <EvaluationContextPanel v-if="['pdf', 'manual', 'batch'].includes(subTab)" v-model:options="analysisOptions" :base-options="baseOptions" :is-batch="subTab === 'batch'" />
           </template>
           <template #pdf>
             <PdfEvaluationPanel v-model:result="ocrResult" :file-name="uploadedFileName" :extracting="ocrLoading" :saving="evalLoading" :chemical-fields="chemicalFields" :drx-options="drxOptions" :petrografia-options="petrografiaOptions" :chemical-text="chemicalText" @select-file="handleFileUpload" @clear-file="clearUploadedFile" @extract="processUploadedFile" @clear-result="clearOcr" @save="saveEvaluation" />
@@ -58,10 +60,10 @@
           <template #batch>
             <BatchEvaluationPanel :file-name="batchFileName" :has-file="Boolean(batchFile)" :loading="batchLoading" @select-file="handleBatchFile" @submit="submitBatchFile" />
           </template>
-          <template #drx><DrxView :samples="samples" :api-base="apiBase" /></template>
+          <template #drx><DrxView :samples="samples" :api-base="apiBase" @register-sample="subTab = 'manual'" /></template>
         </EvaluationView>
 
-        <HistorialView v-if="activeTab === 'historial'" v-model:search-query="searchQuery" v-model:filter-status="filterStatus" :samples="filteredSamples" :show-number="showNumber" :summary-text="summaryText" @export="downloadExcel" @open-sample="viewSampleDetails" @delete-sample="confirmDeleteSample" />
+        <HistorialView v-if="activeTab === 'historial'" v-model:search-query="searchQuery" v-model:filter-status="filterStatus" :samples="filteredSamples" :loading="historyLoading" :error="historyError" :show-number="showNumber" :summary-text="summaryText" @export="downloadExcel" @open-sample="viewSampleDetails" @delete-sample="confirmDeleteSample" @retry="fetchHistorial" />
 
         <ConfiguracionIaView v-if="activeTab === 'configuracion'" />
 
@@ -128,15 +130,19 @@ async function handleLogout() {
 
 const activeTab = ref('dashboard')
 const subTab = ref('pdf')
+const mobileMenuOpen = ref(false)
 const analysisTabs = [
   { id: 'petrografia', label: 'Análisis Petrografía' },
   { id: 'geoquimica', label: 'Evaluación geoquímica' },
   { id: 'termicas', label: 'Análisis de propiedades térmicas' },
 ]
 const activeAnalysisTab = computed(() => subTab.value === 'petrografia' || subTab.value === 'termicas' ? subTab.value : 'geoquimica')
+const pageTitle = computed(() => activeTab.value === 'evaluar' ? ({ petrografia: 'Análisis petrográfico', termicas: 'Propiedades térmicas', drx: 'Difracción de rayos X', pdf: 'FRX por PDF', manual: 'FRX manual', batch: 'Carga por lote' }[subTab.value] || 'Evaluar muestra') : ({ dashboard: 'Dashboard', historial: 'Historial de muestras', configuracion: 'Configuración de IA' }[activeTab.value] || activeTab.value))
 
 // Data State
 const samples = ref([])
+const historyLoading = ref(false)
+const historyError = ref('')
 const searchQuery = ref('')
 const filterStatus = ref('Todos')
 
@@ -230,16 +236,21 @@ watch(session, (actual, previo) => {
 
 // Methods
 async function fetchHistorial() {
+  historyLoading.value = true
+  historyError.value = ''
   try {
     const data = await $fetch(`${apiBase}/historial`)
     samples.value = data || []
     if (selectedSample.value) selectedSample.value = samples.value.find(s => s.id_muestra === selectedSample.value.id_muestra) || selectedSample.value
   } catch (e) {
+    historyError.value = 'No se pudieron cargar las muestras. Revisa la conexión e intenta de nuevo.'
     toast.add({
       title: 'Error de Red',
       description: 'No se pudo conectar con la API. Verifica que el servidor esté corriendo.',
       color: 'error'
     })
+  } finally {
+    historyLoading.value = false
   }
 }
 

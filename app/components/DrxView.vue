@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 const props = defineProps<{ samples: Array<{ id_muestra: string; coordenadas_muestreo?: string | null; direccion_muestreo?: string | null }>; apiBase: string }>()
+const emit = defineEmits(['register-sample'])
 const id = ref('')
 const laboratorio = ref('')
 const fecha = ref('')
@@ -31,7 +32,8 @@ async function save() {
 </script>
 <template>
   <div class="space-y-5"><div><h2 class="text-2xl font-bold">Difracción de rayos X (DRX)</h2><p class="text-sm text-slate-600">Registra las fases identificadas en un informe de laboratorio. El porcentaje es opcional y solo debe ingresarse si el laboratorio lo cuantificó.</p></div>
-    <UCard><form class="space-y-4" @submit.prevent="save"><label class="block text-sm font-semibold">Muestra<select v-model="id" required class="mt-1 block w-full rounded border p-2"><option value="">Selecciona una muestra</option><option v-for="s in samples" :key="s.id_muestra" :value="s.id_muestra">{{ s.id_muestra }}</option></select></label>
+    <UCard v-if="!samples.length"><div class="space-y-3"><p class="text-sm text-slate-600">Registra primero la muestra para asociarle las fases DRX. Los valores químicos pueden quedar vacíos.</p><UButton color="success" @click="emit('register-sample')">Registrar muestra</UButton></div></UCard>
+    <UCard v-else><form class="space-y-4" @submit.prevent="save"><label class="block text-sm font-semibold">Muestra<select v-model="id" required class="mt-1 block w-full rounded border p-2"><option value="">Selecciona una muestra</option><option v-for="s in samples" :key="s.id_muestra" :value="s.id_muestra">{{ s.id_muestra }}</option></select></label>
       <template v-if="id"><p class="text-sm text-slate-600">Coordenadas: {{ samples.find(s => s.id_muestra === id)?.coordenadas_muestreo || 'Sin dato' }} · Dirección: {{ samples.find(s => s.id_muestra === id)?.direccion_muestreo || 'Sin dato' }}</p><div class="grid gap-3 md:grid-cols-2"><AppField v-model="laboratorio" label="Laboratorio / fuente" /><AppField v-model="fecha" label="Fecha del ensayo" type="date" /></div><div v-for="(fase, i) in fases" :key="i" class="flex flex-wrap items-end gap-2"><AppField v-model="fase.mineral" label="Fase mineral" required placeholder="Ej: calcita" /><AppField v-model.number="fase.porcentaje" label="Porcentaje reportado (opcional)" type="number" min="0" max="100" step="any" /><UButton v-if="fases.length > 1" color="error" variant="ghost" type="button" @click="fases.splice(i, 1)">Quitar</UButton></div><UButton type="button" variant="outline" @click="fases.push({ mineral: '', porcentaje: null })">Agregar fase</UButton><label class="block text-sm font-semibold">Observaciones del laboratorio<textarea v-model="observaciones" rows="4" class="mt-1 block w-full rounded border p-2" /></label><UButton type="submit" color="success" :loading="loading">Guardar DRX</UButton></template>
     </form></UCard>
   </div>
