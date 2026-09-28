@@ -14,7 +14,7 @@
 
       <!-- Navigation Menu -->
       <nav class="p-4 space-y-1.5">
-        <template v-for="item in navItems" :key="item.id">
+        <template v-for="item in navItems.filter(item => item.id !== 'configuracion' || canConfigure)" :key="item.id">
           <!-- Flat item -->
           <button
             v-if="!item.children"
@@ -75,7 +75,8 @@ import { ref } from 'vue'
 
 defineProps({
   activeTab: { type: String, required: true },
-  subAnalisis: { type: String, default: 'geo' }
+  subAnalisis: { type: String, default: 'geo' },
+  canConfigure: { type: Boolean, default: false }
 })
 const emit = defineEmits(['navigate'])
 
@@ -93,6 +94,7 @@ const navItems = [
       { id: 'termicas', label: 'Análisis de propiedades térmicas' }
     ]
   },
-  { id: 'historial', icon: 'i-heroicons-table-cells', label: 'Historial y Base de Datos' }
+  { id: 'historial', icon: 'i-heroicons-table-cells', label: 'Historial y Base de Datos' },
+  { id: 'configuracion', icon: 'i-heroicons-cog-6-tooth', label: 'Configuración de IA' }
 ]
 </script>

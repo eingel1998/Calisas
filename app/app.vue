@@ -16,6 +16,7 @@
     <SidebarNav
       :active-tab="activeTab"
       :sub-analisis="activeAnalysisTab"
+      :can-configure="canConfigure"
       @navigate="({ tab, subAnalisis }) => { activeTab = tab; if (subAnalisis) subTab = subAnalisis === 'geoquimica' ? 'pdf' : subAnalisis }"
     />
 
@@ -62,6 +63,8 @@
 
         <HistorialView v-if="activeTab === 'historial'" v-model:search-query="searchQuery" v-model:filter-status="filterStatus" :samples="filteredSamples" :show-number="showNumber" :summary-text="summaryText" @export="downloadExcel" @open-sample="viewSampleDetails" @delete-sample="confirmDeleteSample" />
 
+        <ConfiguracionIaView v-if="activeTab === 'configuracion'" />
+
       </div>
     </main>
 
@@ -100,6 +103,12 @@ const apiBase = config.public.apiBase
 const sessionState = authClient.useSession()
 const session = computed(() => sessionState.value?.data ?? null)
 const sessionPending = computed(() => sessionState.value?.isPending ?? true)
+const canConfigure = ref(false)
+watch(session, async (value) => {
+  canConfigure.value = false
+  if (!value) return
+  try { await $fetch('/api/configuracion-ia'); canConfigure.value = true } catch { /* solo el administrador ve esta sección */ }
+}, { immediate: true })
 const loginForm = ref({ email: '', password: '' })
 const loginLoading = ref(false)
 const loginError = ref('')

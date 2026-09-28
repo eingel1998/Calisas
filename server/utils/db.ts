@@ -4,6 +4,7 @@
 
 import { createClient, type Client } from '@libsql/client'
 import { resolve } from 'node:path'
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { resumir_dictamenes } from './calculos'
 
 export const SCHEMA_SQL = `
@@ -92,6 +93,54 @@ export async function ensureSchema(db: Client = getClient()): Promise<void> {
     temperatura_inicio REAL, temperatura_fin REAL, temperatura_evento REAL,
     perdida_masa REAL, observaciones TEXT, fecha_registro TEXT NOT NULL
   )`)
+  await db.execute(`CREATE TABLE IF NOT EXISTS ai_configuracion (
+    tipo TEXT PRIMARY KEY, base_url TEXT NOT NULL, modelo TEXT NOT NULL, api_key_enc TEXT
+  )`)
+}
+
+function claveCifrado(): Buffer {
+  const secret = process.env.BETTER_AUTH_SECRET
+  if (!secret) throw new Error('BETTER_AUTH_SECRET es necesario para guardar claves de IA')
+  return createHash('sha256').update(secret).digest()
+}
+
+function cifrarClave(value: string): string {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', claveCifrado(), iv)
+  const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()])
+  return [iv, cipher.getAuthTag(), encrypted].map(part => part.toString('base64')).join('.')
+}
+
+function descifrarClave(value: string): string {
+  const [iv, tag, encrypted] = value.split('.').map(part => Buffer.from(part, 'base64'))
+  const decipher = createDecipheriv('aes-256-gcm', claveCifrado(), iv)
+  decipher.setAuthTag(tag)
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8')
+}
+
+export async function admin_config_ia_db(userId: string, db: Client = getClient()): Promise<boolean> {
+  const first = await db.execute('SELECT id FROM "user" ORDER BY "createdAt", id LIMIT 1')
+  return first.rows[0]?.id === userId
+}
+
+export async function obtener_config_petrografia_db(db: Client = getClient()) {
+  const result = await db.execute("SELECT base_url, modelo, api_key_enc FROM ai_configuracion WHERE tipo = 'petrografia'")
+  const row = result.rows[0]
+  const envKey = process.env.PETROGRAFIA_API_KEY || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || ''
+  const fallbackKey = envKey.startsWith('REEMPLAZAR_') ? '' : envKey
+  return {
+    baseURL: String(row?.base_url || process.env.PETROGRAFIA_BASE_URL || (process.env.LLM_API_KEY ? process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1' : 'https://api.openai.com/v1')),
+    model: String(row?.modelo || process.env.PETROGRAFIA_MODEL || process.env.OPENAI_PETROGRAFIA_MODEL || 'gpt-4.1'),
+    apiKey: row?.api_key_enc ? descifrarClave(String(row.api_key_enc)) : fallbackKey,
+    savedKey: Boolean(row?.api_key_enc),
+  }
+}
+
+export async function guardar_config_petrografia_db(baseURL: string, model: string, apiKey: string, db: Client = getClient()): Promise<void> {
+  const current = await db.execute("SELECT api_key_enc FROM ai_configuracion WHERE tipo = 'petrografia'")
+  const encrypted = apiKey ? cifrarClave(apiKey) : current.rows[0]?.api_key_enc || null
+  await db.execute({ sql: `INSERT INTO ai_configuracion (tipo, base_url, modelo, api_key_enc) VALUES ('petrografia', ?, ?, ?)
+    ON CONFLICT(tipo) DO UPDATE SET base_url=excluded.base_url, modelo=excluded.modelo, api_key_enc=excluded.api_key_enc`, args: [baseURL, model, encrypted] })
 }
 
 export function error_db(statusCode: number, message: string): Error & { statusCode: number } {
