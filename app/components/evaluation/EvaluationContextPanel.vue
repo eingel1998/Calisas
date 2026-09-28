@@ -14,5 +14,6 @@ defineProps<{ baseOptions: unknown[]; isBatch: boolean }>()
     </div>
     <UCheckbox v-model="options.convertir" color="success" :disabled="options.base !== 'calcinada'" label="Convertir de base calcinada a seca" />
     <UCheckbox v-model="options.estimar_loi" color="success" :disabled="options.base !== 'calcinada' || !options.convertir || (options.loi !== null && options.loi !== '')" label="Estimar LOI si falta (informativo; no sustituye un ensayo)" />
+    <p v-if="options.base !== 'calcinada'" class="text-xs text-slate-500">Selecciona “Calcinada” como base analítica para habilitar estas opciones.</p>
   </section>
 </template>
