@@ -39,10 +39,6 @@
       <!-- Content Views -->
       <div class="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">
 
-        <nav v-if="activeTab === 'evaluar'" aria-label="Áreas de análisis" class="mb-6 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
-          <UButton v-for="tab in analysisTabs" :key="tab.id" :color="activeAnalysisTab === tab.id ? 'success' : 'neutral'" :variant="activeAnalysisTab === tab.id ? 'solid' : 'ghost'" @click="subTab = tab.id === 'geoquimica' ? 'pdf' : tab.id">{{ tab.label }}</UButton>
-        </nav>
-
         <DashboardView v-if="activeTab === 'dashboard'" :samples="samples" :loading="historyLoading" :error="historyError" :summary-text="summaryText" @navigate="target => { activeTab = target === 'historial' ? 'historial' : 'evaluar'; if (target !== 'historial') subTab = target }" @export="downloadExcel" @open-sample="viewSampleDetails" @retry="fetchHistorial" />
 
         <PetrografiaView v-show="activeTab === 'evaluar' && subTab === 'petrografia'" :samples="samples" :api-base="apiBase" @register-sample="subTab = 'manual'" />
@@ -131,11 +127,6 @@ async function handleLogout() {
 const activeTab = ref('dashboard')
 const subTab = ref('pdf')
 const mobileMenuOpen = ref(false)
-const analysisTabs = [
-  { id: 'petrografia', label: 'Análisis Petrografía' },
-  { id: 'geoquimica', label: 'Evaluación geoquímica' },
-  { id: 'termicas', label: 'Análisis de propiedades térmicas' },
-]
 const activeAnalysisTab = computed(() => subTab.value === 'petrografia' || subTab.value === 'termicas' ? subTab.value : 'geoquimica')
 const pageTitle = computed(() => activeTab.value === 'evaluar' ? ({ petrografia: 'Análisis petrográfico', termicas: 'Propiedades térmicas', drx: 'Difracción de rayos X', pdf: 'FRX por PDF', manual: 'FRX manual', batch: 'Carga por lote' }[subTab.value] || 'Evaluar muestra') : ({ dashboard: 'Dashboard', historial: 'Historial de muestras', configuracion: 'Configuración de IA' }[activeTab.value] || activeTab.value))
 
