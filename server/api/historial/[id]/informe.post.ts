@@ -1,6 +1,6 @@
 import { ALCANCES, type Alcance, error_db, guardar_informe_db, obtener_analisis_termico_db, obtener_config_petrografia_db, obtener_drx_db, obtener_drx_pngs_db, obtener_imagenes_frx_db, obtener_imagenes_petrografia_db, obtener_informes_db, obtener_muestras_db, obtener_petrografia_db } from '../../../utils/db'
 import { mensaje_informe, system_prompt_informe, tarea_informe } from '../../../utils/informe-integral'
-import { aiClient, error_proveedor } from '../../../utils/ai-client'
+import { aiClient, enrutamiento_proveedor, error_proveedor } from '../../../utils/ai-client'
 
 const ETIQUETA: Record<string, string> = { frx_tabla_png: 'tabla de resultados FRX (Sample results)', frx_espectro_png: 'espectro FRX (cps vs keV) con picos identificados' }
 // Qué imágenes de laboratorio ve cada informe.
@@ -61,6 +61,7 @@ export default defineEventHandler(async (event) => {
   const pedir = (conWeb: boolean) => aiClient(config.apiKey, config.baseURL, 280_000).chat.completions.create({
     model: config.model, max_tokens: 32000, temperature: 0.2, messages: mensajes(conWeb),
     ...(conWeb ? { tools: [HERRAMIENTA_WEB] as any } : {}),
+    ...enrutamiento_proveedor(config.baseURL, config.proveedor),
   })
 
   let informe = ''

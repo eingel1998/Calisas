@@ -20,8 +20,11 @@ export default defineEventHandler(async (event) => {
     if (typeof v !== 'string' || v.length > 50_000) throw createError({ statusCode: 400, statusMessage: `Prompt ${k}: máximo 50.000 caracteres` })
     prompts[k] = v
   }
+  const proveedor = typeof body?.proveedor === 'string' ? body.proveedor.trim() : ''
+  const slugs = proveedor.split(',').map((s: string) => s.trim()).filter(Boolean)
+  if (slugs.length > 5 || slugs.some((s: string) => !/^[a-z0-9._-]+(\/[a-z0-9._-]+)?$/i.test(s))) throw createError({ statusCode: 400, statusMessage: 'Proveedor inválido: usa nombres como google-ai-studio/flex separados por coma (máx. 5)' })
   if (apiKey.length > 512) throw createError({ statusCode: 400, statusMessage: 'Clave demasiado larga' })
-  await guardar_config_petrografia_db(baseURL.replace(/\/$/, ''), model, apiKey, prompts)
+  await guardar_config_petrografia_db(baseURL.replace(/\/$/, ''), model, apiKey, prompts, slugs.join(','))
   const config = await obtener_config_petrografia_db()
-  return { baseURL: config.baseURL, model: config.model, hasKey: Boolean(config.apiKey), savedKey: config.savedKey, prompts: config.prompts }
+  return { baseURL: config.baseURL, model: config.model, hasKey: Boolean(config.apiKey), savedKey: config.savedKey, prompts: config.prompts, proveedor: config.proveedor }
 })

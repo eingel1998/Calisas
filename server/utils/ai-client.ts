@@ -4,6 +4,13 @@ export function aiClient(apiKey: string, baseURL: string, timeout = 90_000): Ope
   return new OpenAI({ apiKey, baseURL, timeout, maxRetries: 0 })
 }
 
+// Enrutamiento opcional de OpenRouter: prefiere ese proveedor (p. ej. google-ai-studio/flex, más barato pero con más latencia) y cae a otro si falla.
+export function enrutamiento_proveedor(baseURL: string, proveedor: string) {
+  const slugs = proveedor.split(',').map(s => s.trim()).filter(Boolean)
+  if (!slugs.length || !/(^|\.)openrouter\.ai$/.test(new URL(baseURL).hostname)) return {}
+  return { provider: { order: slugs, allow_fallbacks: true } }
+}
+
 // Mensaje legible del error del proveedor (estado + motivo), sin exponer la clave.
 export function error_proveedor(e: any, modelo: string) {
   const estado = e?.status ?? e?.statusCode

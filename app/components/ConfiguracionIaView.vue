@@ -6,6 +6,7 @@ const toast = useToast()
 const baseURL = ref('')
 const model = ref('')
 const apiKey = ref('')
+const proveedor = ref('')
 const hasKey = ref(false)
 const savedKey = ref(false)
 const prompts = ref<Record<Clave, string>>({ informe: '', mercado: '', region: '', busqueda_web: '', petrografia: '', drx: '', frx: '', termicas: '' })
@@ -26,6 +27,7 @@ const bloques: Array<{ clave: Clave; titulo: string; ayuda: string; nivel: 0 | 1
 function aplicar(config: any) {
   baseURL.value = config.baseURL
   model.value = config.model
+  proveedor.value = config.proveedor || ''
   hasKey.value = config.hasKey
   savedKey.value = config.savedKey
   prompts.value = { ...prompts.value, ...(config.prompts || {}) }
@@ -41,7 +43,7 @@ async function guardar() {
   busy.value = true
   error.value = ''
   try {
-    aplicar(await $fetch('/api/configuracion-ia', { method: 'PUT', body: { baseURL: baseURL.value, model: model.value, apiKey: apiKey.value, prompts: prompts.value } }))
+    aplicar(await $fetch('/api/configuracion-ia', { method: 'PUT', body: { baseURL: baseURL.value, model: model.value, apiKey: apiKey.value, proveedor: proveedor.value, prompts: prompts.value } }))
     apiKey.value = ''
     toast.add({ title: 'Configuración de IA guardada', color: 'success' })
   } catch (e: any) { error.value = e.data?.statusMessage || 'No se pudo guardar la configuración' }
@@ -58,6 +60,7 @@ onMounted(cargar)
       <UCard><div class="space-y-4">
         <UFormField label="URL base del proveedor"><UInput v-model="baseURL" type="url" required class="w-full" placeholder="https://openrouter.ai/api/v1" /></UFormField>
         <UFormField label="Modelo con visión"><UInput v-model="model" required class="w-full" placeholder="google/gemini-3.8-flash" /></UFormField>
+        <UFormField label="Proveedor en OpenRouter (opcional)" help="Proveedor preferido para ejecutar el modelo; si está saturado o falla, OpenRouter usa otro. Ej: google-ai-studio/flex es más barato pero con más latencia. Varios separados por coma. Vacío = OpenRouter elige."><UInput v-model="proveedor" class="w-full" placeholder="google-ai-studio/flex" /></UFormField>
         <UFormField label="Clave API"><UInput v-model="apiKey" type="password" autocomplete="new-password" class="w-full" placeholder="Déjala vacía para conservar la clave actual" /></UFormField>
         <p v-if="savedKey" class="text-xs text-emerald-700">✓ Hay una clave guardada aquí. Nunca se muestra; escribe una nueva solo para reemplazarla.</p>
         <p v-else-if="hasKey" class="rounded border-l-4 border-amber-500 bg-amber-50 p-2 text-xs text-amber-800">No hay clave guardada aquí: se está usando la del archivo <code>.env</code> del servidor, que puede ser de otro proveedor. Pega la clave del proveedor de arriba y guarda.</p>

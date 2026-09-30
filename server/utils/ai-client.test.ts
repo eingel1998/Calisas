@@ -19,3 +19,11 @@ it('envía chat e imágenes al proveedor configurado', async () => {
   expect(String(fetch.mock.calls[0][0])).toBe('https://proveedor.example/v1/chat/completions')
   expect(response.choices[0].message.content).toBe('Informe')
 })
+
+it('el enrutamiento de proveedor es opcional y solo aplica a OpenRouter', async () => {
+  const { enrutamiento_proveedor: r } = await import('./ai-client')
+  expect(r('https://openrouter.ai/api/v1', '')).toEqual({})
+  expect(r('https://otro.example/v1', 'google-ai-studio/flex')).toEqual({})
+  expect(r('https://openrouter.ai/api/v1', 'google-ai-studio/flex')).toEqual({ provider: { order: ['google-ai-studio/flex'], allow_fallbacks: true } })
+  expect(r('https://openrouter.ai/api/v1', 'a, b')).toEqual({ provider: { order: ['a', 'b'], allow_fallbacks: true } })
+})

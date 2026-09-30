@@ -15,12 +15,16 @@ it('guarda la clave cifrada y aplica cambios sin exponerla', async () => {
     expect(await admin_config_ia_db('owner', db)).toBe(true)
     expect(await admin_config_ia_db('other', db)).toBe(false)
 
-    await guardar_config_petrografia_db('https://openrouter.ai/api/v1', 'google/gemma-4-31b-it:free', 'sk-prueba', {}, db)
+    await guardar_config_petrografia_db('https://openrouter.ai/api/v1', 'google/gemma-4-31b-it:free', 'sk-prueba', {}, '', db)
     const stored = await db.execute('SELECT api_key_enc FROM ai_configuracion')
     expect(String(stored.rows[0].api_key_enc)).not.toContain('sk-prueba')
     expect(await obtener_config_petrografia_db(db)).toMatchObject({ model: 'google/gemma-4-31b-it:free', apiKey: 'sk-prueba', savedKey: true })
 
-    await guardar_config_petrografia_db('https://openrouter.ai/api/v1', 'google/gemma-4-26b-a4b-it:free', '', {}, db)
+    await guardar_config_petrografia_db('https://openrouter.ai/api/v1', 'google/gemma-4-26b-a4b-it:free', '', {}, '', db)
     expect(await obtener_config_petrografia_db(db)).toMatchObject({ model: 'google/gemma-4-26b-a4b-it:free', apiKey: 'sk-prueba' })
+    expect(await obtener_config_petrografia_db(db)).toMatchObject({ proveedor: '' })
+
+    await guardar_config_petrografia_db('https://openrouter.ai/api/v1', 'google/gemini-3.8-flash', '', {}, 'google-ai-studio/flex', db)
+    expect(await obtener_config_petrografia_db(db)).toMatchObject({ proveedor: 'google-ai-studio/flex' })
   } finally { db.close() }
 })

@@ -126,7 +126,7 @@ export async function ensureSchema(db: Client = getClient()): Promise<void> {
     tipo TEXT PRIMARY KEY, base_url TEXT NOT NULL, modelo TEXT NOT NULL, api_key_enc TEXT
   )`)
   const aiCols = await db.execute('PRAGMA table_info(ai_configuracion)')
-  for (const col of Object.values(COLUMNAS_PROMPT)) if (!aiCols.rows.some(row => row.name === col)) await db.execute(`ALTER TABLE ai_configuracion ADD COLUMN ${col} TEXT`)
+  for (const [col, tipo] of [...Object.values(COLUMNAS_PROMPT).map(c => [c, 'TEXT']), ['proveedor', 'TEXT']]) if (!aiCols.rows.some(row => row.name === col)) await db.execute(`ALTER TABLE ai_configuracion ADD COLUMN ${col} ${tipo}`)
 }
 
 function claveCifrado(): Buffer {
@@ -164,17 +164,18 @@ export async function obtener_config_petrografia_db(db: Client = getClient()) {
     model: String(row?.modelo || process.env.PETROGRAFIA_MODEL || 'google/gemini-3.8-flash'),
     apiKey: row?.api_key_enc ? descifrarClave(String(row.api_key_enc)) : fallbackKey,
     savedKey: Boolean(row?.api_key_enc),
+    proveedor: String(row?.proveedor || ''),
     prompts: Object.fromEntries(Object.entries(COLUMNAS_PROMPT).map(([k, col]) => [k, String(row?.[col] || '')])) as Required<Prompts>,
   }
 }
 
-export async function guardar_config_petrografia_db(baseURL: string, model: string, apiKey: string, prompts: Prompts = {}, db: Client = getClient()): Promise<void> {
+export async function guardar_config_petrografia_db(baseURL: string, model: string, apiKey: string, prompts: Prompts = {}, proveedor = '', db: Client = getClient()): Promise<void> {
   const current = await db.execute("SELECT api_key_enc FROM ai_configuracion WHERE tipo = 'petrografia'")
   const encrypted = apiKey ? cifrarClave(apiKey) : current.rows[0]?.api_key_enc || null
   const cols = Object.values(COLUMNAS_PROMPT)
-  await db.execute({ sql: `INSERT INTO ai_configuracion (tipo, base_url, modelo, api_key_enc, ${cols.join(', ')}) VALUES ('petrografia', ?, ?, ?, ${cols.map(() => '?').join(', ')})
-    ON CONFLICT(tipo) DO UPDATE SET base_url=excluded.base_url, modelo=excluded.modelo, api_key_enc=excluded.api_key_enc, ${cols.map(c => `${c}=excluded.${c}`).join(', ')}`,
-    args: [baseURL, model, encrypted, ...Object.keys(COLUMNAS_PROMPT).map(k => prompts[k as keyof Prompts]?.trim() || null)] })
+  await db.execute({ sql: `INSERT INTO ai_configuracion (tipo, base_url, modelo, api_key_enc, proveedor, ${cols.join(', ')}) VALUES ('petrografia', ?, ?, ?, ?, ${cols.map(() => '?').join(', ')})
+    ON CONFLICT(tipo) DO UPDATE SET base_url=excluded.base_url, modelo=excluded.modelo, api_key_enc=excluded.api_key_enc, proveedor=excluded.proveedor, ${cols.map(c => `${c}=excluded.${c}`).join(', ')}`,
+    args: [baseURL, model, encrypted, proveedor.trim() || null, ...Object.keys(COLUMNAS_PROMPT).map(k => prompts[k as keyof Prompts]?.trim() || null)] })
 }
 
 export function error_db(statusCode: number, message: string): Error & { statusCode: number } {
