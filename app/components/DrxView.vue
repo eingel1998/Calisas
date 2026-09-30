@@ -1,40 +1,88 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-const props = defineProps<{ samples: Array<{ id_muestra: string; coordenadas_muestreo?: string | null; direccion_muestreo?: string | null }>; apiBase: string }>()
-const emit = defineEmits(['register-sample'])
-const id = ref('')
-const laboratorio = ref('')
-const fecha = ref('')
-const observaciones = ref('')
-const fases = ref<Array<{ mineral: string; porcentaje: number | null }>>([{ mineral: '', porcentaje: null }])
-const loading = ref(false)
+import { imagen_a_png, pdf_a_png } from '~/utils/pdf-imagen'
+
+// Bloque DRX del panel de carga/edición: la fuente son una o varias gráficas (difractogramas) del laboratorio.
+// `nuevo`: la muestra aún no existe, no hay nada que cargar.
+const MAX = 8
+const props = defineProps<{ apiBase: string; sampleId?: string; nuevo?: boolean }>()
 const toast = useToast()
-const api = () => `${props.apiBase}/historial/${encodeURIComponent(id.value)}/drx`
-watch(id, async actual => {
-  laboratorio.value = ''; fecha.value = ''; observaciones.value = ''; fases.value = [{ mineral: '', porcentaje: null }]
-  if (!actual) return
-  try {
-    const saved: any = await $fetch(api())
-    laboratorio.value = saved.laboratorio || ''
-    fecha.value = saved.fecha_ensayo || ''
-    observaciones.value = saved.observaciones || ''
-    if (saved.fases?.length) fases.value = saved.fases.map((f: any) => ({ mineral: f.mineral, porcentaje: f.porcentaje }))
-  } catch (e: any) { toast.add({ title: 'No se pudo cargar DRX', description: e.data?.statusMessage, color: 'error' }) }
-})
-async function save() {
-  loading.value = true
-  try {
-    await $fetch(api(), { method: 'PUT', body: { laboratorio: laboratorio.value, fecha_ensayo: fecha.value, observaciones: observaciones.value, fases: fases.value } })
-    toast.add({ title: 'Fases DRX guardadas', color: 'success' })
-  } catch (e: any) { toast.add({ title: 'No se pudo guardar DRX', description: e.data?.statusMessage || e.statusMessage, color: 'error' }) }
-  finally { loading.value = false }
+const nuevas = ref<Array<{ original: File; png: File; vista: string }>>([])
+const guardadas = ref<Array<{ id: number; nombre: string; original_mime: string | null }>>([])
+const convirtiendo = ref(false)
+const base = (id: string) => `${props.apiBase}/historial/${encodeURIComponent(id)}/drx/graficas`
+
+function quitar(i: number) {
+  URL.revokeObjectURL(nuevas.value[i].vista)
+  nuevas.value.splice(i, 1)
 }
+function limpiar() {
+  nuevas.value.forEach(n => URL.revokeObjectURL(n.vista))
+  nuevas.value = []
+}
+
+watch(() => props.sampleId, async id => {
+  if (props.nuevo || !id) return
+  try { guardadas.value = await $fetch(base(id)) }
+  catch (e: any) { toast.add({ title: 'No se pudieron cargar las gráficas DRX', description: e.data?.statusMessage, color: 'error' }) }
+}, { immediate: true })
+
+async function elegir(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  input.value = ''
+  if (!files.length) return
+  if (nuevas.value.length + files.length > MAX) return toast.add({ title: `Máximo ${MAX} gráficas DRX`, color: 'error' })
+  convirtiendo.value = true
+  try {
+    for (const file of files) {
+      const esPdf = file.name.toLowerCase().endsWith('.pdf')
+      if ((!esPdf && !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) || file.size > 10 * 1024 * 1024) {
+        toast.add({ title: `${file.name}: sube PDF, PNG, JPG o WEBP de hasta 10 MiB`, color: 'error' })
+        continue
+      }
+      const png = esPdf ? await pdf_a_png(file) : await imagen_a_png(file)
+      nuevas.value.push({ original: file, png, vista: URL.createObjectURL(png) })
+    }
+  } catch { toast.add({ title: 'No se pudo leer uno de los archivos', color: 'error' }) }
+  finally { convirtiendo.value = false }
+}
+
+// Las gráficas se guardan como conjunto: subir nuevas reemplaza las anteriores. Los errores suben al panel.
+async function save(id: string) {
+  if (!nuevas.value.length) return
+  const body = new FormData()
+  nuevas.value.forEach((n, i) => {
+    body.append(`png_${i}`, n.png)
+    body.append(`original_${i}`, n.original)
+    body.append(`nombre_${i}`, n.original.name)
+  })
+  await $fetch(base(id), { method: 'POST', body })
+  limpiar()
+}
+defineExpose({ save, tieneGrafica: () => Boolean(nuevas.value.length || guardadas.value.length) })
 </script>
+
 <template>
-  <div class="space-y-5"><div><h2 class="text-2xl font-bold">Difracción de rayos X (DRX)</h2><p class="text-sm text-slate-600">Registra las fases identificadas en un informe de laboratorio. El porcentaje es opcional y solo debe ingresarse si el laboratorio lo cuantificó.</p></div>
-    <UCard v-if="!samples.length"><div class="space-y-3"><p class="text-sm text-slate-600">Registra primero la muestra para asociarle las fases DRX. Los valores químicos pueden quedar vacíos.</p><UButton color="success" @click="emit('register-sample')">Registrar muestra</UButton></div></UCard>
-    <UCard v-else><form class="space-y-4" @submit.prevent="save"><label class="block text-sm font-semibold">Muestra<select v-model="id" required class="mt-1 block w-full rounded border p-2"><option value="">Selecciona una muestra</option><option v-for="s in samples" :key="s.id_muestra" :value="s.id_muestra">{{ s.id_muestra }}</option></select></label>
-      <template v-if="id"><p class="text-sm text-slate-600">Coordenadas: {{ samples.find(s => s.id_muestra === id)?.coordenadas_muestreo || 'Sin dato' }} · Dirección: {{ samples.find(s => s.id_muestra === id)?.direccion_muestreo || 'Sin dato' }}</p><div class="grid gap-3 md:grid-cols-2"><AppField v-model="laboratorio" label="Laboratorio / fuente" /><AppField v-model="fecha" label="Fecha del ensayo" type="date" /></div><div v-for="(fase, i) in fases" :key="i" class="flex flex-wrap items-end gap-2"><AppField v-model="fase.mineral" label="Fase mineral" required placeholder="Ej: calcita" /><AppField v-model.number="fase.porcentaje" label="Porcentaje reportado (opcional)" type="number" min="0" max="100" step="any" /><UButton v-if="fases.length > 1" color="error" variant="ghost" type="button" @click="fases.splice(i, 1)">Quitar</UButton></div><UButton type="button" variant="outline" @click="fases.push({ mineral: '', porcentaje: null })">Agregar fase</UButton><label class="block text-sm font-semibold">Observaciones del laboratorio<textarea v-model="observaciones" rows="4" class="mt-1 block w-full rounded border p-2" /></label><UButton type="submit" color="success" :loading="loading">Guardar DRX</UButton></template>
-    </form></UCard>
+  <div class="space-y-3">
+    <p class="text-sm text-slate-500">Sube una o varias gráficas del difractograma (con sus fases identificadas) tal como las entrega el laboratorio. El modelo las interpreta al generar los informes.</p>
+    <label class="flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed p-4 transition-colors hover:border-emerald-500" :class="nuevas.length ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200'">
+      <input type="file" multiple accept=".pdf,application/pdf,image/png,image/jpeg,image/webp" class="sr-only" :disabled="convirtiendo" @change="elegir">
+      <UIcon :name="convirtiendo ? 'i-lucide-loader-2' : 'i-heroicons-chart-bar'" class="size-7 shrink-0" :class="[convirtiendo && 'animate-spin', nuevas.length ? 'text-emerald-600' : 'text-slate-400']" />
+      <span><span class="block text-sm font-semibold">{{ nuevas.length ? 'Agregar más gráficas' : guardadas.length ? 'Reemplazar gráficas DRX' : 'Gráficas DRX' }}</span><span class="block text-xs text-slate-500">{{ convirtiendo ? 'Procesando…' : `PDF o imagen (PNG, JPG, WEBP) · hasta ${MAX}` }}</span></span>
+    </label>
+    <div v-if="nuevas.length" class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div v-for="(n, i) in nuevas" :key="n.vista" class="relative overflow-hidden rounded-lg border">
+        <img :src="n.vista" :alt="n.original.name" class="h-40 w-full bg-white object-contain">
+        <p class="truncate border-t px-2 py-1 text-xs">{{ n.original.name }}</p>
+        <UButton size="xs" color="error" variant="solid" icon="i-heroicons-x-mark" class="absolute right-1 top-1" :aria-label="`Quitar ${n.original.name}`" @click="quitar(i)" />
+      </div>
+    </div>
+    <template v-else-if="guardadas.length && sampleId">
+      <p class="text-xs text-slate-500">{{ guardadas.length }} {{ guardadas.length === 1 ? 'gráfica guardada' : 'gráficas guardadas' }}. Si subes nuevas, reemplazan a estas.</p>
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <a v-for="g in guardadas" :key="g.id" :href="`${base(sampleId)}/${g.id}`" target="_blank" rel="noopener" class="overflow-hidden rounded-lg border"><img :src="`${base(sampleId)}/${g.id}`" :alt="g.nombre" class="h-40 w-full bg-white object-contain" loading="lazy"><p class="truncate border-t px-2 py-1 text-xs">{{ g.nombre }}</p></a>
+      </div>
+    </template>
   </div>
 </template>

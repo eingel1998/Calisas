@@ -129,3 +129,9 @@ describe('firma de calcular_evaluacion (compatibilidad)', () => {
     expect(r.dictamenes).toHaveLength(17)
   })
 })
+
+it('al convertir de calcinada a seca no escala un CaCO₃ recibido: lo estima del CaO seco', () => {
+  const r = convertir_base_seca({ caco3: 95.45, cao: 92.576, mgo: 0.407, sio2: 4.307 })
+  expect(r.caco3).toBeCloseTo(r.cao! * 1.7848, 6)
+  expect(r.caco3).toBeGreaterThan(95)
+})

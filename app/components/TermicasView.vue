@@ -1,48 +1,52 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 
-const props = defineProps<{ samples: Array<{ id_muestra: string; coordenadas_muestreo?: string | null; direccion_muestreo?: string | null }>; apiBase: string }>()
-const emit = defineEmits(['register-sample'])
+// Bloque de propiedades térmicas del panel de carga/edición. `nuevo`: la muestra aún no existe, no hay nada que cargar.
+const props = defineProps<{ apiBase: string; sampleId?: string; nuevo?: boolean }>()
 const toast = useToast()
-const id = ref('')
-const loading = ref(false)
-const empty = () => ({ tecnica: 'TGA/DTG', laboratorio: '', fecha_ensayo: '', atmosfera: '', tasa_calentamiento: null as number | null,
-  temperatura_inicio: null as number | null, temperatura_fin: null as number | null, temperatura_evento: null as number | null, perdida_masa: null as number | null, observaciones: '' })
-const form = ref(empty())
-const api = () => `${props.apiBase}/historial/${encodeURIComponent(id.value)}/termicas`
-const fields: Array<{ key: 'tasa_calentamiento' | 'temperatura_inicio' | 'temperatura_fin' | 'temperatura_evento' | 'perdida_masa'; label: string; max: number }> = [
-  { key: 'tasa_calentamiento', label: 'Tasa de calentamiento (°C/min)', max: 1000 },
-  { key: 'temperatura_inicio', label: 'Temperatura inicial (°C)', max: 3000 },
-  { key: 'temperatura_fin', label: 'Temperatura final (°C)', max: 3000 },
-  { key: 'temperatura_evento', label: 'Temperatura del evento observado (°C)', max: 3000 },
-  { key: 'perdida_masa', label: 'Pérdida de masa medida (%)', max: 100 },
+const empty = () => ({ tecnica: 'Difusividad/Capacidad', sensor: 'SH-3', nivel_lectura: 'Alto', duracion_min: null as number | null, temperatura_muestra: null as number | null,
+  fecha_ensayo: '', hora_ensayo: '', laboratorio: '', difusividad: null as number | null, capacidad_volumetrica: null as number | null, conductividad: null as number | null, syx: null as number | null, observaciones: '' })
+const form = ref<Record<string, any>>(empty())
+const api = (id: string) => `${props.apiBase}/historial/${encodeURIComponent(id)}/termicas`
+const resultados = [
+  { key: 'difusividad', label: 'D · Difusividad térmica (mm²/s)' },
+  { key: 'capacidad_volumetrica', label: 'C · Capacidad calorífica volumétrica (MJ/m³·K)' },
+  { key: 'conductividad', label: 'K · Conductividad térmica (W/m·K)' },
+  { key: 'syx', label: 'Sᵧₓ · Error del ajuste' },
 ]
-watch(id, async actual => {
-  form.value = empty()
-  if (!actual) return
-  try { form.value = { ...empty(), ...((await $fetch(api())) || {}) } }
-  catch (e: any) { toast.add({ title: 'No se pudo cargar el ensayo térmico', description: e.data?.statusMessage, color: 'error' }) }
-})
-async function save() {
-  loading.value = true
+
+watch(() => props.sampleId, async id => {
+  if (props.nuevo || !id) return
   try {
-    await $fetch(api(), { method: 'PUT', body: form.value })
-    toast.add({ title: 'Ensayo térmico guardado', color: 'success' })
-  } catch (e: any) { toast.add({ title: 'No se pudo guardar el ensayo', description: e.data?.statusMessage || e.statusMessage, color: 'error' }) }
-  finally { loading.value = false }
+    const saved: any = await $fetch(api(id))
+    // null del servidor no debe pisar los valores por defecto de los selects
+    form.value = { ...empty(), ...Object.fromEntries(Object.entries(saved || {}).filter(([, v]) => v != null)) }
+  } catch (e: any) { toast.add({ title: 'No se pudo cargar el ensayo térmico', description: e.data?.statusMessage, color: 'error' }) }
+}, { immediate: true })
+
+// Sin D, C ni K no hay ensayo que guardar. Los errores suben al panel, que los resume.
+const tieneDatos = () => ['difusividad', 'capacidad_volumetrica', 'conductividad'].some(k => form.value[k] != null && form.value[k] !== '')
+async function save(id: string) {
+  if (!tieneDatos()) return
+  await $fetch(api(id), { method: 'PUT', body: form.value })
 }
+defineExpose({ save, tieneDatos })
 </script>
 
 <template>
-  <div class="space-y-5"><div><h2 class="text-2xl font-bold">Análisis de propiedades térmicas</h2><p class="text-sm text-slate-600">Registra resultados medidos por el laboratorio. La pérdida de masa y las temperaturas no se deducen de FRX, DRX ni de fotografías. Si la muestra aún no existe, regístrala en Evaluación geoquímica → FRX manual; los químicos pueden quedar vacíos.</p></div>
-    <UCard v-if="!samples.length"><div class="space-y-3"><p class="text-sm text-slate-600">Registra primero la muestra para asociarle un ensayo térmico. Los valores químicos pueden quedar vacíos.</p><UButton color="success" @click="emit('register-sample')">Registrar muestra</UButton></div></UCard>
-    <UCard v-else><form class="space-y-4" @submit.prevent="save">
-      <label class="block text-sm font-semibold">Muestra registrada<select v-model="id" required class="mt-1 block w-full rounded border p-2"><option value="">Selecciona una muestra</option><option v-for="sample in samples" :key="sample.id_muestra" :value="sample.id_muestra">{{ sample.id_muestra }}</option></select></label>
-      <div v-if="id" class="space-y-4"><p class="text-sm text-slate-600">Coordenadas: {{ samples.find(s => s.id_muestra === id)?.coordenadas_muestreo || 'Sin dato' }} · Dirección: {{ samples.find(s => s.id_muestra === id)?.direccion_muestreo || 'Sin dato' }}</p>
-        <div class="grid gap-3 md:grid-cols-2"><label class="block text-sm font-semibold">Técnica<select v-model="form.tecnica" class="mt-1 block w-full rounded border p-2"><option>TGA/DTG</option><option>DSC</option><option>DTA</option><option>TGA-DSC</option></select></label><AppField v-model="form.laboratorio" label="Laboratorio / fuente" /><AppField v-model="form.fecha_ensayo" label="Fecha del ensayo" type="date" /><AppField v-model="form.atmosfera" label="Atmósfera del ensayo" placeholder="Ej: aire, N₂" /><AppField v-for="field in fields" :key="field.key" v-model.number="form[field.key]" :label="field.label" type="number" min="0" :max="field.max" step="any" /></div>
-        <label class="block text-sm font-semibold">Observaciones del informe<textarea v-model="form.observaciones" rows="4" class="mt-1 block w-full rounded border p-2" /></label>
-        <UButton type="submit" color="success" :loading="loading">Guardar ensayo térmico</UButton>
-      </div>
-    </form></UCard>
+  <div class="space-y-4">
+    <p class="text-sm text-slate-500">Registra la lectura del equipo de propiedades termofísicas tal como aparece en pantalla.</p>
+    <div class="grid gap-3 md:grid-cols-3">
+      <label class="block text-sm font-semibold">Prueba<select v-model="form.tecnica" class="mt-1 block w-full rounded border p-2"><option>Difusividad/Capacidad</option><option>Conductividad</option></select></label>
+      <label class="block text-sm font-semibold">Sensor<select v-model="form.sensor" class="mt-1 block w-full rounded border p-2"><option>SH-3</option><option>TR-3</option><option>KS-3</option><option>RK-3</option></select></label>
+      <label class="block text-sm font-semibold">Nivel de lectura<select v-model="form.nivel_lectura" class="mt-1 block w-full rounded border p-2"><option>Alto</option><option>Bajo</option></select></label>
+      <AppField v-model.number="form.duracion_min" label="Duración (min)" type="number" min="0" step="any" />
+      <AppField v-model.number="form.temperatura_muestra" label="Temperatura de la muestra (°C)" type="number" step="any" />
+      <AppField v-model="form.laboratorio" label="Laboratorio / equipo" />
+      <AppField v-model="form.fecha_ensayo" label="Fecha del ensayo" type="date" />
+      <AppField v-model="form.hora_ensayo" label="Hora de la lectura" type="time" />
+    </div>
+    <div class="grid gap-3 rounded-lg border bg-slate-50 p-3 md:grid-cols-2"><AppField v-for="field in resultados" :key="field.key" v-model.number="form[field.key]" :label="field.label" type="number" min="0" step="any" /></div>
+    <label class="block text-sm font-semibold">Nota / observaciones<textarea v-model="form.observaciones" rows="3" class="mt-1 block w-full rounded border p-2" /></label>
   </div>
 </template>

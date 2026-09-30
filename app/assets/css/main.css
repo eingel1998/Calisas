@@ -1,2 +1,31 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+/* Tailwind v4 usa currentColor como color de borde por defecto: sin esto, cada `border` sin color sale negro. */
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    border-color: var(--color-slate-200);
+  }
+}
+
+/* Informes IA renderizados desde Markdown */
+.informe-md { font-size: 0.875rem; line-height: 1.65; color: var(--color-slate-800); }
+.informe-md > :first-child { margin-top: 0; }
+.informe-md h1, .informe-md h2 { margin: 1.6em 0 0.6em; padding-bottom: 0.3em; border-bottom: 1px solid var(--color-slate-200); font-size: 1.05rem; font-weight: 700; color: var(--color-slate-900); }
+.informe-md h3 { margin: 1.3em 0 0.4em; font-size: 0.95rem; font-weight: 600; color: var(--color-emerald-800); }
+.informe-md h4 { margin: 1em 0 0.3em; font-weight: 600; }
+.informe-md p { margin: 0.6em 0; }
+.informe-md ul, .informe-md ol { margin: 0.5em 0; padding-left: 1.4em; }
+.informe-md ul { list-style: disc; }
+.informe-md ol { list-style: decimal; }
+.informe-md li { margin: 0.25em 0; }
+.informe-md li > ul, .informe-md li > ol { margin: 0.2em 0; }
+.informe-md strong { font-weight: 600; color: var(--color-slate-900); }
+.informe-md em { color: var(--color-slate-600); }
+.informe-md hr { margin: 1.5em 0; border-top: 1px solid var(--color-slate-200); }
+.informe-md blockquote { margin: 0.8em 0; padding: 0.4em 0.9em; border-left: 3px solid var(--color-emerald-400); background: var(--color-emerald-50); color: var(--color-slate-700); }
+.informe-md code { padding: 0.1em 0.35em; border-radius: 0.25rem; background: var(--color-slate-100); font-size: 0.85em; }
+.informe-md table { width: 100%; margin: 0.8em 0; border-collapse: collapse; font-size: 0.8rem; }
+.informe-md th, .informe-md td { padding: 0.4em 0.6em; border: 1px solid var(--color-slate-200); text-align: left; vertical-align: top; }
+.informe-md th { background: var(--color-slate-50); font-weight: 600; }
+.informe-md a { color: var(--color-emerald-700); text-decoration: underline; }

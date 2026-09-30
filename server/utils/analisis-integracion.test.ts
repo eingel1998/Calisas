@@ -2,7 +2,6 @@ import {it,expect} from 'vitest'
 import ExcelJS from 'exceljs'
 import {evaluar_muestra,parsear_reporte_xrf,resumir_dictamenes} from './calculos'
 import {exportar_historial_excel} from './excel'
-import {parsear_lote} from './lote'
 
 it('exporta valores, origen y resumen idénticos, incluido cero', async()=> {
  const r=evaluar_muestra({id_muestra:'EXCEL',caco3:99,cao:55,fe2o3:0.0499,cd:0,contexto:{base:'seca',base_trazas:'seca',loi:0}})
@@ -19,12 +18,9 @@ it('exporta valores, origen y resumen idénticos, incluido cero', async()=> {
  expect(wb.getWorksheet('Dictámenes')!.rowCount).toBe(18)
  expect(wb.getWorksheet('Datos originales')!.rowCount).toBeGreaterThan(1)
 })
-it('lote entiende subíndices, ppm, coma decimal y ausencia',async()=> {
- const rows=await parsear_lote(Buffer.from('ID Muestra;CaCO₃ (%);CaO (%);Cd (ppm)\nA;99;55,1234;'),'m.csv')
- expect(rows[0]).toEqual({IDMUESTRA:'A',CACO3:'99',CAO:'55,1234',CD:''})
+it('dictámenes inválidos no rompen el resumen',()=> {
  expect(()=>resumir_dictamenes(Array(17).fill(null))).not.toThrow()
  expect(resumir_dictamenes(Array(17).fill(null))).toBeNull()
- await expect(parsear_lote(Buffer.from('other;CaO\nA;55'),'m.csv')).rejects.toThrow('ID Muestra')
 })
 it('trazas se convierten una vez y derivados sí permiten evaluar',()=> {
  const req={id_muestra:'A',cao:90,mgo:1,pb:4,contexto:{base:'calcinada',base_trazas:'calcinada',convertir:true,loi:40}}

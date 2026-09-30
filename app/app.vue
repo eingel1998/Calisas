@@ -3,22 +3,39 @@
     <div v-if="sessionPending" class="min-h-screen bg-slate-50 flex items-center justify-center">
       <UIcon name="i-lucide-loader-2" class="animate-spin size-8 text-emerald-600" />
     </div>
-    <div v-else-if="!session" class="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-      <form class="w-full max-w-sm bg-white border border-slate-200 rounded-xl p-8 shadow-lg space-y-4" @submit.prevent="handleLogin">
-        <h1 class="text-lg font-bold text-slate-800">Ingresar a Calizas</h1>
-        <UFormField label="Correo"><UInput v-model="loginForm.email" type="email" autocomplete="username" required class="w-full" /></UFormField>
-        <UFormField label="Contraseña"><UInput v-model="loginForm.password" type="password" autocomplete="current-password" required class="w-full" /></UFormField>
-        <p v-if="loginError" class="text-sm text-rose-600">{{ loginError }}</p>
-        <UButton type="submit" block color="success" :loading="loginLoading">Ingresar</UButton>
-      </form>
+    <div v-else-if="!session" class="min-h-screen grid md:grid-cols-2 bg-white">
+      <section class="relative hidden md:flex flex-col justify-between overflow-hidden bg-slate-900 p-12 text-white">
+        <img src="/logo.svg" alt="" class="pointer-events-none absolute -right-24 -bottom-24 size-[28rem] opacity-10 rotate-12">
+        <div class="flex items-center gap-3">
+          <img src="/logo.svg" alt="" class="size-10">
+          <span class="text-xl font-bold tracking-tight">Calcita</span>
+        </div>
+        <div class="relative max-w-md space-y-4">
+          <h2 class="text-4xl font-bold leading-tight tracking-tight">De la muestra al mercado.</h2>
+          <p class="text-slate-300">FRX, DRX, petrografía y propiedades térmicas en un solo lugar, con informes que dicen para qué sirve cada caliza.</p>
+        </div>
+        <p class="text-xs text-slate-500">Caracterización y valorización de calizas</p>
+      </section>
+      <div class="flex items-center justify-center px-6 py-12 bg-slate-50 md:bg-white">
+        <form class="w-full max-w-sm space-y-5" @submit.prevent="handleLogin">
+          <div class="space-y-2">
+            <img src="/logo.svg" alt="" class="size-12 md:hidden">
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Bienvenido</h1>
+            <p class="text-sm text-slate-500">Ingresa con tu cuenta de Calcita.</p>
+          </div>
+          <UFormField label="Correo"><UInput v-model="loginForm.email" type="email" autocomplete="username" required size="lg" class="w-full" icon="i-lucide-mail" /></UFormField>
+          <UFormField label="Contraseña"><UInput v-model="loginForm.password" type="password" autocomplete="current-password" required size="lg" class="w-full" icon="i-lucide-lock" /></UFormField>
+          <p v-if="loginError" class="text-sm text-rose-600">{{ loginError }}</p>
+          <UButton type="submit" block size="lg" color="success" :loading="loginLoading">Ingresar</UButton>
+        </form>
+      </div>
     </div>
     <div v-else class="flex min-h-screen bg-slate-50 text-slate-800">
     <SidebarNav
       v-model:mobile-open="mobileMenuOpen"
       :active-tab="activeTab"
-      :sub-analisis="activeAnalysisTab"
       :can-configure="canConfigure"
-      @navigate="({ tab, subAnalisis }) => { activeTab = tab; if (subAnalisis) subTab = subAnalisis === 'geoquimica' ? 'pdf' : subAnalisis }"
+      @navigate="({ tab }) => { activeTab = tab; if (tab === 'cargar') muestraEnEdicion = null }"
     />
 
     <!-- Main Content Area -->
@@ -39,45 +56,31 @@
       <!-- Content Views -->
       <div class="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">
 
-        <DashboardView v-if="activeTab === 'dashboard'" :samples="samples" :loading="historyLoading" :error="historyError" :summary-text="summaryText" @navigate="target => { activeTab = target === 'historial' ? 'historial' : 'evaluar'; if (target !== 'historial') subTab = target }" @export="downloadExcel" @open-sample="viewSampleDetails" @retry="fetchHistorial" />
+        <DashboardView v-if="activeTab === 'dashboard'" :samples="samples" :loading="historyLoading" :error="historyError" :summary-text="summaryText" @navigate="target => { activeTab = target === 'historial' ? 'historial' : 'cargar'; }" @export="downloadExcel" @open-sample="viewSampleDetails" @retry="fetchHistorial" />
 
-        <PetrografiaView v-show="activeTab === 'evaluar' && subTab === 'petrografia'" :samples="samples" :api-base="apiBase" @register-sample="subTab = 'manual'" />
-        <TermicasView v-show="activeTab === 'evaluar' && subTab === 'termicas'" :samples="samples" :api-base="apiBase" @register-sample="subTab = 'manual'" />
-        <EvaluationView v-show="activeTab === 'evaluar' && activeAnalysisTab === 'geoquimica'" v-model:sub-tab="subTab">
-          <template #context>
-            <EvaluationContextPanel v-if="['pdf', 'manual', 'batch'].includes(subTab)" v-model:options="analysisOptions" :base-options="baseOptions" :is-batch="subTab === 'batch'" />
-          </template>
-          <template #pdf>
-            <PdfEvaluationPanel v-model:result="ocrResult" :file-name="uploadedFileName" :extracting="ocrLoading" :saving="evalLoading" :chemical-fields="chemicalFields" :drx-options="drxOptions" :petrografia-options="petrografiaOptions" :chemical-text="chemicalText" @select-file="handleFileUpload" @clear-file="clearUploadedFile" @extract="processUploadedFile" @clear-result="clearOcr" @save="saveEvaluation" />
-          </template>
-          <template #manual>
-            <ManualEvaluationForm v-model:form="manualForm" :loading="evalLoading" :drx-options="drxOptions" :petrografia-options="petrografiaOptions" @submit="submitManualForm" />
-          </template>
-          <template #batch>
-            <BatchEvaluationPanel :file-name="batchFileName" :has-file="Boolean(batchFile)" :loading="batchLoading" @select-file="handleBatchFile" @submit="submitBatchFile" />
-          </template>
-          <template #drx><DrxView :samples="samples" :api-base="apiBase" @register-sample="subTab = 'manual'" /></template>
-        </EvaluationView>
 
-        <HistorialView v-if="activeTab === 'historial'" v-model:search-query="searchQuery" v-model:filter-status="filterStatus" :samples="filteredSamples" :loading="historyLoading" :error="historyError" :show-number="showNumber" :summary-text="summaryText" @export="downloadExcel" @open-sample="viewSampleDetails" @delete-sample="confirmDeleteSample" @retry="fetchHistorial" />
+        <div v-show="activeTab === 'cargar'">
+          <CargarMuestra v-if="!muestraEnEdicion" :api-base="apiBase" :samples="samples" :chemical-fields="chemicalFields" :base-options="baseOptions" :chemical-text="chemicalText" @saved="muestraGuardada" />
+          <CargarMuestra v-else :key="muestraEnEdicion.id_muestra" :muestra="muestraEnEdicion" :api-base="apiBase" :samples="samples" :chemical-fields="chemicalFields" :base-options="baseOptions" :chemical-text="chemicalText" @saved="muestraGuardada" @cancel="cancelarEdicion" />
+        </div>
+
+        <HistorialView v-if="activeTab === 'historial'" v-model:search-query="searchQuery" v-model:filter-status="filterStatus" :samples="filteredSamples" :loading="historyLoading" :error="historyError" @export="downloadExcel" @open-sample="viewSampleDetails" @delete-sample="confirmDeleteSample" @retry="fetchHistorial" />
 
         <ConfiguracionIaView v-if="activeTab === 'configuracion'" />
 
       </div>
     </main>
 
-    <SampleDetailDrawer v-model:open="drawerOpen" :sample="selectedSample">
-      <div class="mb-4 flex gap-2"><UButton v-if="!editingSample && selectedSample?.version_evaluacion === 2" color="success" variant="outline" icon="i-heroicons-pencil-square" @click="editingSample = true">Editar datos guardados</UButton><UButton v-if="editingSample" variant="ghost" @click="editingSample = false">Volver al resultado</UButton></div>
-      <EditSampleForm v-if="editingSample" :sample="selectedSample" :chemical-fields="chemicalFields" :api-base="apiBase" @saved="handleSampleUpdated" @cancel="editingSample = false" />
-      <SampleAnalysisDetails v-else :sample="selectedSample" :chemical-fields="chemicalFields" :show-number="showNumber" :chemical-text="chemicalText" :file="evidenceFile" :confirmed="evidenceConfirmed" :replace="replaceEvidence" :loading="evidenceLoading" :api-base="apiBase" @select-evidence="selectEvidence" @update:confirmed="evidenceConfirmed = $event" @update:replace="replaceEvidence = $event" @upload-evidence="uploadEvidence" />
+    <SampleDetailDrawer v-model:open="drawerOpen" :sample="selectedSample" @edit="editarMuestra(selectedSample)">
+      <DetalleMuestra :sample="selectedSample" :api-base="apiBase" :chemical-fields="chemicalFields" :chemical-text="chemicalText" :file="evidenceFile" :confirmed="evidenceConfirmed" :replace="replaceEvidence" :loading="evidenceLoading" @select-evidence="selectEvidence" @update:confirmed="evidenceConfirmed = $event" @update:replace="replaceEvidence = $event" @upload-evidence="uploadEvidence" />
     </SampleDetailDrawer>
 
     <!-- CONFIRM DELETE DIALOG -->
     <UModal v-model:open="deleteModalOpen">
       <template #content>
         <div class="p-6 space-y-4 bg-white rounded-lg">
-          <h3 class="font-bold text-lg text-slate-900">¿Estás seguro de eliminar esta muestra?</h3>
-          <p class="text-sm text-slate-600">Esta acción es irreversible y eliminará de forma permanente el registro "{{ sampleToDelete }}" de la base de datos SQLite.</p>
+          <h3 class="font-bold text-lg text-slate-900">¿Eliminar esta muestra?</h3>
+          <p class="text-sm text-slate-600">Se eliminará de forma permanente la muestra «{{ sampleToDelete }}» con todo lo asociado: datos de FRX, DRX, petrografía y térmicas, fotos, PDF adjuntos e informes IA. No se puede deshacer.</p>
           <div class="flex justify-end gap-3 pt-2">
             <UButton color="neutral" variant="ghost" @click="deleteModalOpen = false">Cancelar</UButton>
             <UButton color="error" :loading="deleteLoading" @click="executeDeleteSample">Eliminar Permanentemente</UButton>
@@ -125,10 +128,29 @@ async function handleLogout() {
 }
 
 const activeTab = ref('dashboard')
-const subTab = ref('pdf')
 const mobileMenuOpen = ref(false)
-const activeAnalysisTab = computed(() => subTab.value === 'petrografia' || subTab.value === 'termicas' ? subTab.value : 'geoquimica')
-const pageTitle = computed(() => activeTab.value === 'evaluar' ? ({ petrografia: 'Análisis petrográfico', termicas: 'Propiedades térmicas', drx: 'Difracción de rayos X', pdf: 'FRX por PDF', manual: 'FRX manual', batch: 'Carga por lote' }[subTab.value] || 'Evaluar muestra') : ({ dashboard: 'Dashboard', historial: 'Historial de muestras', configuracion: 'Configuración de IA' }[activeTab.value] || activeTab.value))
+const muestraEnEdicion = ref(null)
+function editarMuestra(sample) {
+  muestraEnEdicion.value = sample
+  drawerOpen.value = false
+  activeTab.value = 'cargar'
+}
+function cancelarEdicion() {
+  const sample = muestraEnEdicion.value
+  muestraEnEdicion.value = null
+  activeTab.value = 'historial'
+  viewSampleDetails(sample)
+}
+async function muestraGuardada(saved) {
+  muestraEnEdicion.value = null
+  await fetchHistorial()
+  viewSampleDetails(samples.value.find(s => s.id_muestra === saved.id_muestra) || saved)
+  activeTab.value = 'historial'
+}
+const pageTitle = computed(() => activeTab.value === 'cargar' && muestraEnEdicion.value
+  ? `Editar muestra ${muestraEnEdicion.value.id_muestra}`
+  : ({ dashboard: 'Dashboard', cargar: 'Cargar muestra', historial: 'Historial de muestras', configuracion: 'Configuración de IA' }[activeTab.value] || activeTab.value))
+
 
 // Data State
 const samples = ref([])
@@ -138,67 +160,13 @@ const searchQuery = ref('')
 const filterStatus = ref('Todos')
 
 // File processing state
-const uploadedFile = ref(null)
-const uploadedFileName = ref('')
-const ocrLoading = ref(false)
-const ocrResult = ref(null)
 const baseOptions = [{ label: 'Automática', value: 'desconocida' }, { label: 'Seca', value: 'seca' }, { label: 'Calcinada', value: 'calcinada' }]
-const drxOptions = [{ label: 'Sin dato', value: null }, 'Calcita', 'Calcita Magnesiana', 'Dolomita']
-const petrografiaOptions = [{ label: 'Sin dato', value: null }, 'Micrítica de grano fino', 'Esparítica de grano grueso']
-const newContext = () => ({ base: 'desconocida', base_trazas: 'desconocida', convertir: false, estimar_loi: false, loi: null })
-const contexts = ref({ pdf: newContext(), manual: newContext(), batch: newContext() })
-const analysisOptions = computed(() => contexts.value[subTab.value])
-function evaluationContext(tab, originales = []) {
-  const c = contexts.value[tab]
-  return { ...c, originales, loi: c.loi === '' ? null : c.loi,
-    convertir: c.base === 'calcinada' && c.convertir,
-    estimar_loi: c.base === 'calcinada' && c.convertir && c.estimar_loi && (c.loi == null || c.loi === '') }
-}
-
 // Manual Form State
-const manualForm = ref({
-  id_muestra: '',
-  coordenadas_muestreo: '',
-  direccion_muestreo: '',
-  caco3: null,
-  cao: null,
-  mgo: null,
-  sio2: null,
-  fe2o3: null,
-  al2o3: null,
-  so3: null,
-  na2o: null,
-  k2o: null,
-  p2o5: null,
-  pb: null,
-  cd: null,
-  as_ppm: null,
-  drx: null,
-  petrografia: null,
-  extras: {
-    pn: null,
-    blancura: null,
-    tamano_particula: null,
-    humedad: null,
-    cao_disponible: null,
-    cao_reactivo: null,
-    resistencia: null,
-    absorcion: null
-  }
-})
-
-// Batch Loading state
-const batchFile = ref(null)
-const batchFileName = ref('')
-const batchLoading = ref(false)
 
 // Evaluation loading
-const evalLoading = ref(false)
-
 // Detail Drawer state
 const drawerOpen = ref(false)
 const selectedSample = ref(null)
-const editingSample = ref(false)
 
 // Delete Dialog State
 const deleteModalOpen = ref(false)
@@ -211,11 +179,13 @@ const toast = useToast()
 // Computed filtering
 const filteredSamples = computed(() => {
   return samples.value.filter(s => {
-    const matchesSearch = s.id_muestra.toLowerCase().includes(searchQuery.value.toLowerCase())
+    const q = searchQuery.value.toLowerCase()
+    const matchesSearch = [s.id_muestra, s.direccion_muestreo, s.coordenadas_muestreo].some(v => String(v || '').toLowerCase().includes(q))
     const matchesStatus = filterStatus.value === 'Todos' ||
       (filterStatus.value === 'Con usos aptos' && s.resumen?.aptos > 0) ||
       (filterStatus.value === 'Con incumplimientos' && s.resumen?.no_aptos > 0) ||
       (filterStatus.value === 'Con ensayos pendientes' && s.resumen?.pendientes > 0) ||
+      (filterStatus.value === 'Sin informe integral' && !s.informe_integral_estado) ||
       (filterStatus.value === 'Históricos' && s.version_evaluacion !== 2)
     return matchesSearch && matchesStatus
   })
@@ -245,244 +215,16 @@ async function fetchHistorial() {
   }
 }
 
-// Upload handlers
-function handleFileUpload(event) {
-  const file = event.target.files[0]
-  if (file && !file.name.toLowerCase().endsWith('.pdf')) {
-    clearUploadedFile()
-    toast.add({ title: 'Selecciona un PDF de resultados', color: 'error' })
-    event.target.value = ''
-    return
-  }
-  if (file) {
-    clearOcr()
-    uploadedFile.value = file
-    uploadedFileName.value = file.name
-  }
-}
-
-function clearUploadedFile() {
-  uploadedFile.value = null
-  uploadedFileName.value = ''
-  clearOcr()
-}
-
-function clearOcr() {
-  ocrResult.value = null
-}
-
-async function processUploadedFile() {
-  if (!uploadedFile.value) {
-    toast.add({ title: 'Archivo faltante', description: 'Por favor arrastra o selecciona un archivo primero.', color: 'warning' })
-    return
-  }
-
-  ocrLoading.value = true
-  const formData = new FormData()
-  formData.append('file', uploadedFile.value)
-
-  try {
-    const data = await $fetch(`${apiBase}/procesar-pdf`, {
-      method: 'POST',
-      body: formData
-    })
-
-    if (data.es_base_calcinada) contexts.value.pdf = { base: 'calcinada', base_trazas: 'calcinada', convertir: true, estimar_loi: true, loi: null }
-
-    ocrResult.value = {
-      datos: {
-        muestra_id: data.datos.muestra_id || '',
-        coordenadas_muestreo: '',
-        direccion_muestreo: '',
-        archivo_fuente: uploadedFileName.value,
-        originales: data.datos.originales || [],
-        metadatos: data.datos.metadatos || {},
-        texto_reporte: data.datos.texto_reporte || data.texto_crudo || '',
-        caco3: data.datos.caco3 ?? null,
-        cao: data.datos.cao ?? null,
-        mgo: data.datos.mgo ?? null,
-        sio2: data.datos.sio2 ?? null,
-        fe2o3: data.datos.fe2o3 ?? null,
-        al2o3: data.datos.al2o3 ?? null,
-        so3: data.datos.so3 ?? null,
-        na2o: data.datos.na2o ?? null,
-        k2o: data.datos.k2o ?? null,
-        p2o5: data.datos.p2o5 ?? null,
-        pb: data.datos.pb ?? null,
-        cd: data.datos.cd ?? null,
-        as_ppm: data.datos.as_ppm ?? null,
-        drx: null,
-        petrografia: null
-      },
-      extras: {
-        pn: null, blancura: null, tamano_particula: null, humedad: null,
-        cao_disponible: null, cao_reactivo: null, resistencia: null, absorcion: null
-      },
-      avisos: data.avisos || []
-    }
-    uploadedFile.value = null
-    uploadedFileName.value = ''
-    toast.add({ title: 'Extracción completada', description: 'Revisa y ajusta los valores antes de guardar.', color: 'success' })
-  } catch (e) {
-    toast.add({ title: 'Error de Extracción', description: e.data?.statusMessage || e.data?.detail || e.statusMessage || 'No se pudo leer el PDF. Asegúrate de subir el reporte de Sample Results.', color: 'error' })
-  } finally {
-    ocrLoading.value = false
-  }
-}
-
-async function saveEvaluation(payload) {
-  evalLoading.value = true
-  try {
-    const bodyPayload = {
-      id_muestra: payload.muestra_id,
-      coordenadas_muestreo: payload.coordenadas_muestreo,
-      direccion_muestreo: payload.direccion_muestreo,
-      caco3: nullable(payload.caco3),
-      cao: nullable(payload.cao),
-      mgo: nullable(payload.mgo),
-      sio2: nullable(payload.sio2),
-      fe2o3: nullable(payload.fe2o3),
-      al2o3: nullable(payload.al2o3),
-      so3: nullable(payload.so3),
-      na2o: nullable(payload.na2o),
-      k2o: nullable(payload.k2o),
-      p2o5: nullable(payload.p2o5),
-      pb: nullable(payload.pb),
-      cd: nullable(payload.cd),
-      as_ppm: nullable(payload.as_ppm),
-      drx: payload.drx || null,
-      petrografia: payload.petrografia || null,
-      extras: Object.fromEntries(Object.entries(ocrResult.value?.extras || {}).map(([key, value]) => [key, nullable(value)])),
-      archivo_fuente: payload.archivo_fuente || 'PDF Upload',
-      contexto: { ...evaluationContext('pdf', payload.originales), texto_reporte: payload.texto_reporte },
-      guardar_db: true
-    }
-
-    const saved = await $fetch(`${apiBase}/evaluar`, {
-      method: 'POST',
-      body: bodyPayload
-    })
-
-    toast.add({ title: 'Muestra Registrada', description: `La muestra "${payload.muestra_id}" se guardó en SQLite exitosamente.`, color: 'success' })
-    viewSampleDetails(saved)
-    clearUploadedFile()
-    contexts.value.pdf = newContext()
-    fetchHistorial()
-    activeTab.value = 'dashboard'
-  } catch (e) {
-    toast.add({ title: 'Error de Guardado', description: e.data?.statusMessage || e.data?.detail || e.statusMessage || 'No se pudo calcular/guardar la muestra.', color: 'error' })
-  } finally {
-    evalLoading.value = false
-  }
-}
-
-// Manual Form Submit
-async function submitManualForm() {
-  if (!manualForm.value.id_muestra) {
-    toast.add({ title: 'ID faltante', description: 'Por favor asigne un ID único a la muestra.', color: 'warning' })
-    return
-  }
-
-  evalLoading.value = true
-  try {
-    const cleanExtras = Object.fromEntries(Object.entries(manualForm.value.extras).map(([key, value]) => [key, nullable(value)]))
-
-    const saved = await $fetch(`${apiBase}/evaluar`, {
-      method: 'POST',
-      body: {
-        id_muestra: manualForm.value.id_muestra,
-        coordenadas_muestreo: manualForm.value.coordenadas_muestreo,
-        direccion_muestreo: manualForm.value.direccion_muestreo,
-        caco3: nullable(manualForm.value.caco3),
-        cao: nullable(manualForm.value.cao),
-        mgo: nullable(manualForm.value.mgo),
-        sio2: nullable(manualForm.value.sio2),
-        fe2o3: nullable(manualForm.value.fe2o3),
-        al2o3: nullable(manualForm.value.al2o3),
-        so3: nullable(manualForm.value.so3),
-        na2o: nullable(manualForm.value.na2o),
-        k2o: nullable(manualForm.value.k2o),
-        p2o5: nullable(manualForm.value.p2o5),
-        pb: nullable(manualForm.value.pb),
-        cd: nullable(manualForm.value.cd),
-        as_ppm: nullable(manualForm.value.as_ppm),
-        drx: nullable(manualForm.value.drx),
-        petrografia: nullable(manualForm.value.petrografia),
-        extras: cleanExtras,
-        archivo_fuente: 'Formulario manual',
-        contexto: evaluationContext('manual'),
-        guardar_db: true
-      }
-    })
-
-    toast.add({ title: 'Muestra Registrada', description: `Muestra "${manualForm.value.id_muestra}" evaluada y registrada con éxito.`, color: 'success' })
-
-    viewSampleDetails(saved)
-    contexts.value.manual = newContext()
-    // Reset form
-    manualForm.value = {
-      id_muestra: '', coordenadas_muestreo: '', direccion_muestreo: '', caco3: null, cao: null, mgo: null, sio2: null, fe2o3: null, al2o3: null, so3: null,
-      na2o: null, k2o: null, p2o5: null, pb: null, cd: null, as_ppm: null, drx: null, petrografia: null,
-      extras: { pn: null, blancura: null, tamano_particula: null, humedad: null, cao_disponible: null, cao_reactivo: null, resistencia: null, absorcion: null }
-    }
-
-    fetchHistorial()
-    activeTab.value = 'dashboard'
-  } catch (e) {
-    toast.add({ title: 'Error de Guardado', description: e.data?.statusMessage || e.data?.detail || e.statusMessage || 'No se pudo realizar la evaluación.', color: 'error' })
-  } finally {
-    evalLoading.value = false
-  }
-}
-
-// Batch Files
-function handleBatchFile(event) {
-  const file = event.target.files[0]
-  if (file) {
-    batchFile.value = file
-    batchFileName.value = file.name
-  }
-}
-
-async function submitBatchFile() {
-  if (!batchFile.value) return
-  batchLoading.value = true
-  const formData = new FormData()
-  formData.append('file', batchFile.value)
-  formData.append('contexto', JSON.stringify(evaluationContext('batch')))
-
-  try {
-    const data = await $fetch(`${apiBase}/procesar-lote`, {
-      method: 'POST',
-      body: formData
-    })
-    toast.add({ title: 'Carga Masiva Exitosa', description: `Se procesaron e insertaron ${data.count} muestras exitosamente.`, color: 'success' })
-    contexts.value.batch = newContext()
-    batchFile.value = null
-    batchFileName.value = ''
-    fetchHistorial()
-    activeTab.value = 'dashboard'
-  } catch (e) {
-    toast.add({ title: 'Error de Lote', description: e.data?.statusMessage || e.data?.detail || e.statusMessage || 'No se pudo procesar el archivo por lotes.', color: 'error' })
-  } finally {
-    batchLoading.value = false
-  }
-}
 
 // Visualizer details
 function viewSampleDetails(sample) {
   selectedSample.value = sample
-  editingSample.value = false
   evidenceFile.value = null
   evidenceConfirmed.value = false
   replaceEvidence.value = false
   drawerOpen.value = true
 }
 
-async function handleSampleUpdated() {
-  await fetchHistorial()
-  editingSample.value = false
-}
 
 // Delete Handlers
 function confirmDeleteSample(id) {
@@ -518,7 +260,6 @@ const chemicalFields = [
   { key: 'as_ppm', label: 'As', unit: 'ppm' }, { key: 'loi', label: 'LOI', unit: '%' }
 ]
 function nullable(value) { return value == null || value === '' ? null : value }
-function showNumber(value, unit = '') { return value == null || value === '' ? 'Sin dato' : `${typeof value === 'number' ? Number(value.toPrecision(10)) : value}${unit ? ` ${unit}` : ''}` }
 function summaryText(sample) {
   const r = sample?.resumen
   return r ? `${r.aptos} cumplen · ${r.no_aptos} incumplen · ${r.pendientes} requieren ensayos` : 'Resultado no disponible'

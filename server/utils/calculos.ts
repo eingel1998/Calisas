@@ -88,9 +88,9 @@ export function convertir_base_seca(datos: Partial<Composicion>, loi?: Numero, c
   loi=validar_numero(loi,'LOI',100)!
   const factor=(100-loi)/100
   const out = Object.fromEntries(CAMPOS.map(k=>[k,datos[k]??null])) as Record<string,Numero>
-  for (const k of ['caco3',...OXIDOS,...(convertirTrazas?['pb','cd','as_ppm']:[])]) out[k]=datos[k]==null?null:datos[k]!*factor
-  // Si no se midió carbonato, la conversión solo ofrece una estimación explícita.
-  if (out.caco3==null && out.cao!=null) out.caco3=out.cao*1.7848<=100?out.cao*1.7848:null
+  for (const k of [...OXIDOS,...(convertirTrazas?['pb','cd','as_ppm']:[])]) out[k]=datos[k]==null?null:datos[k]!*factor
+  // En base calcinada no queda carbonato: cualquier CaCO₃ recibido se descarta y se estima del CaO seco.
+  out.caco3=out.cao!=null && out.cao*1.7848<=100 ? out.cao*1.7848 : null
   out.loi=loi
   out.loi_estimado=loi
   return out

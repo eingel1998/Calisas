@@ -61,10 +61,13 @@ function getClient(): Client {
   return client
 }
 
+export const COLUMNAS_PROMPT = { informe: 'prompt_informe', mercado: 'contexto_mercado', region: 'region_mercado', busqueda_web: 'busqueda_web', petrografia: 'prompt_petrografia', frx: 'prompt_frx', drx: 'prompt_drx', termicas: 'prompt_termicas' } as const
+export type Prompts = Partial<Record<keyof typeof COLUMNAS_PROMPT, string>>
+
 export async function ensureSchema(db: Client = getClient()): Promise<void> {
   await db.execute(SCHEMA_SQL)
   const columns = await db.execute('PRAGMA table_info(muestras)')
-  for (const [name, type] of [['contexto_json', 'TEXT'], ['version_evaluacion', 'INTEGER'], ['interpretacion_ia', 'TEXT'], ['interpretacion_fecha', 'TEXT'], ['fecha_modificacion', 'TEXT'], ['coordenadas_muestreo', 'TEXT'], ['direccion_muestreo', 'TEXT']]) {
+  for (const [name, type] of [['contexto_json', 'TEXT'], ['version_evaluacion', 'INTEGER'], ['interpretacion_ia', 'TEXT'], ['interpretacion_fecha', 'TEXT'], ['fecha_modificacion', 'TEXT'], ['coordenadas_muestreo', 'TEXT'], ['direccion_muestreo', 'TEXT'], ['informe_integral', 'TEXT'], ['informe_estado', 'TEXT'], ['informe_modelo', 'TEXT'], ['informe_fecha', 'TEXT']]) {
     if (!columns.rows.some(row => row.name === name)) await db.execute(`ALTER TABLE muestras ADD COLUMN ${name} ${type}`)
   }
   await db.execute(`CREATE TABLE IF NOT EXISTS evidencias (
@@ -93,9 +96,37 @@ export async function ensureSchema(db: Client = getClient()): Promise<void> {
     temperatura_inicio REAL, temperatura_fin REAL, temperatura_evento REAL,
     perdida_masa REAL, observaciones TEXT, fecha_registro TEXT NOT NULL
   )`)
+  const termicas = await db.execute('PRAGMA table_info(analisis_termicos)')
+  for (const [name, type] of [['sensor', 'TEXT'], ['nivel_lectura', 'TEXT'], ['duracion_min', 'REAL'], ['temperatura_muestra', 'REAL'], ['hora_ensayo', 'TEXT'], ['difusividad', 'REAL'], ['capacidad_volumetrica', 'REAL'], ['conductividad', 'REAL'], ['syx', 'REAL']]) {
+    if (!termicas.rows.some(row => row.name === name)) await db.execute(`ALTER TABLE analisis_termicos ADD COLUMN ${name} ${type}`)
+  }
+  await db.execute(`CREATE TABLE IF NOT EXISTS archivos_muestra (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, id_muestra TEXT NOT NULL, tipo TEXT NOT NULL,
+    nombre TEXT NOT NULL, mime TEXT NOT NULL, contenido BLOB NOT NULL, fecha TEXT NOT NULL,
+    UNIQUE (id_muestra, tipo)
+  )`)
+  // DRX: una o varias gráficas (difractogramas) por muestra; el PNG es lo que ve el modelo, el original se conserva.
+  await db.execute(`CREATE TABLE IF NOT EXISTS drx_graficas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, id_muestra TEXT NOT NULL, nombre TEXT NOT NULL,
+    png BLOB NOT NULL, original BLOB, original_mime TEXT, fecha TEXT NOT NULL
+  )`)
+  // migra la gráfica única que antes vivía en archivos_muestra
+  await db.execute(`INSERT INTO drx_graficas (id_muestra, nombre, png, original, original_mime, fecha)
+    SELECT a.id_muestra, a.nombre, a.contenido, p.contenido, CASE WHEN p.contenido IS NULL THEN NULL ELSE 'application/pdf' END, a.fecha
+    FROM archivos_muestra a LEFT JOIN archivos_muestra p ON p.id_muestra = a.id_muestra AND p.tipo = 'drx_pdf' WHERE a.tipo = 'drx_png'`)
+  await db.execute("DELETE FROM archivos_muestra WHERE tipo IN ('drx_png', 'drx_pdf')")
+  await db.execute(`CREATE TABLE IF NOT EXISTS informes (
+    id_muestra TEXT NOT NULL, alcance TEXT NOT NULL, informe TEXT NOT NULL, estado TEXT NOT NULL,
+    modelo TEXT, fecha TEXT NOT NULL, PRIMARY KEY (id_muestra, alcance)
+  )`)
+  await db.execute(`INSERT OR IGNORE INTO informes (id_muestra, alcance, informe, estado, modelo, fecha)
+    SELECT id_muestra, 'integral', informe_integral, COALESCE(informe_estado, 'borrador'), informe_modelo, COALESCE(informe_fecha, fecha_registro)
+    FROM muestras WHERE informe_integral IS NOT NULL AND informe_integral <> ''`)
   await db.execute(`CREATE TABLE IF NOT EXISTS ai_configuracion (
     tipo TEXT PRIMARY KEY, base_url TEXT NOT NULL, modelo TEXT NOT NULL, api_key_enc TEXT
   )`)
+  const aiCols = await db.execute('PRAGMA table_info(ai_configuracion)')
+  for (const col of Object.values(COLUMNAS_PROMPT)) if (!aiCols.rows.some(row => row.name === col)) await db.execute(`ALTER TABLE ai_configuracion ADD COLUMN ${col} TEXT`)
 }
 
 function claveCifrado(): Buffer {
@@ -124,23 +155,26 @@ export async function admin_config_ia_db(userId: string, db: Client = getClient(
 }
 
 export async function obtener_config_petrografia_db(db: Client = getClient()) {
-  const result = await db.execute("SELECT base_url, modelo, api_key_enc FROM ai_configuracion WHERE tipo = 'petrografia'")
+  const result = await db.execute("SELECT * FROM ai_configuracion WHERE tipo = 'petrografia'")
   const row = result.rows[0]
   const envKey = process.env.PETROGRAFIA_API_KEY || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || ''
   const fallbackKey = envKey.startsWith('REEMPLAZAR_') ? '' : envKey
   return {
-    baseURL: String(row?.base_url || process.env.PETROGRAFIA_BASE_URL || (process.env.LLM_API_KEY ? process.env.LLM_BASE_URL || 'https://openrouter.ai/api/v1' : 'https://api.openai.com/v1')),
-    model: String(row?.modelo || process.env.PETROGRAFIA_MODEL || process.env.OPENAI_PETROGRAFIA_MODEL || 'gpt-4.1'),
+    baseURL: String(row?.base_url || process.env.PETROGRAFIA_BASE_URL || 'https://openrouter.ai/api/v1'),
+    model: String(row?.modelo || process.env.PETROGRAFIA_MODEL || 'google/gemini-3.8-flash'),
     apiKey: row?.api_key_enc ? descifrarClave(String(row.api_key_enc)) : fallbackKey,
     savedKey: Boolean(row?.api_key_enc),
+    prompts: Object.fromEntries(Object.entries(COLUMNAS_PROMPT).map(([k, col]) => [k, String(row?.[col] || '')])) as Required<Prompts>,
   }
 }
 
-export async function guardar_config_petrografia_db(baseURL: string, model: string, apiKey: string, db: Client = getClient()): Promise<void> {
+export async function guardar_config_petrografia_db(baseURL: string, model: string, apiKey: string, prompts: Prompts = {}, db: Client = getClient()): Promise<void> {
   const current = await db.execute("SELECT api_key_enc FROM ai_configuracion WHERE tipo = 'petrografia'")
   const encrypted = apiKey ? cifrarClave(apiKey) : current.rows[0]?.api_key_enc || null
-  await db.execute({ sql: `INSERT INTO ai_configuracion (tipo, base_url, modelo, api_key_enc) VALUES ('petrografia', ?, ?, ?)
-    ON CONFLICT(tipo) DO UPDATE SET base_url=excluded.base_url, modelo=excluded.modelo, api_key_enc=excluded.api_key_enc`, args: [baseURL, model, encrypted] })
+  const cols = Object.values(COLUMNAS_PROMPT)
+  await db.execute({ sql: `INSERT INTO ai_configuracion (tipo, base_url, modelo, api_key_enc, ${cols.join(', ')}) VALUES ('petrografia', ?, ?, ?, ${cols.map(() => '?').join(', ')})
+    ON CONFLICT(tipo) DO UPDATE SET base_url=excluded.base_url, modelo=excluded.modelo, api_key_enc=excluded.api_key_enc, ${cols.map(c => `${c}=excluded.${c}`).join(', ')}`,
+    args: [baseURL, model, encrypted, ...Object.keys(COLUMNAS_PROMPT).map(k => prompts[k as keyof Prompts]?.trim() || null)] })
 }
 
 export function error_db(statusCode: number, message: string): Error & { statusCode: number } {
@@ -194,13 +228,19 @@ function leerJSON(valor: unknown): any {
   try { return typeof valor === 'string' ? JSON.parse(valor) : null } catch { return null }
 }
 
-export async function obtener_muestras_db(db: Client = getClient()): Promise<any[]> {
-  const res = await db.execute(`SELECT m.*, e.nombre AS evidencia_nombre, e.fecha AS evidencia_fecha
-    FROM muestras m LEFT JOIN evidencias e ON m.id_muestra = e.id_muestra ORDER BY m.fecha_registro DESC`)
+export async function obtener_muestras_db(db: Client = getClient(), id?: string): Promise<any[]> {
+  // Banderas por análisis y estado del informe integral: la tabla del historial las muestra sin pedir cada detalle.
+  const res = await db.execute({ sql: `SELECT m.*, e.nombre AS evidencia_nombre, e.fecha AS evidencia_fecha,
+      (EXISTS(SELECT 1 FROM drx_fases d WHERE d.id_muestra = m.id_muestra) OR EXISTS(SELECT 1 FROM drx_graficas g WHERE g.id_muestra = m.id_muestra)) AS tiene_drx,
+      (EXISTS(SELECT 1 FROM petrografias p WHERE p.id_muestra = m.id_muestra AND p.informe <> '') OR EXISTS(SELECT 1 FROM petrografia_imagenes i WHERE i.id_muestra = m.id_muestra)) AS tiene_petrografia,
+      EXISTS(SELECT 1 FROM analisis_termicos t WHERE t.id_muestra = m.id_muestra) AS tiene_termicas,
+      (SELECT estado FROM informes r WHERE r.id_muestra = m.id_muestra AND r.alcance = 'integral') AS informe_integral_estado
+    FROM muestras m LEFT JOIN evidencias e ON m.id_muestra = e.id_muestra ${id ? 'WHERE m.id_muestra = ?' : ''} ORDER BY m.fecha_registro DESC`, args: id ? [id] : [] })
   return res.rows.map(row => {
     const dictamenes = leerJSON(row.dictamenes_json)
     const contexto = leerJSON(row.contexto_json)
-    return { ...row, dictamenes: resumir_dictamenes(dictamenes) ? dictamenes : null,
+    return { ...row, tiene_drx: Boolean(row.tiene_drx), tiene_petrografia: Boolean(row.tiene_petrografia), tiene_termicas: Boolean(row.tiene_termicas),
+      dictamenes: resumir_dictamenes(dictamenes) ? dictamenes : null,
       contexto: contexto && typeof contexto === 'object' && !Array.isArray(contexto) ? contexto : null,
       resumen: resumir_dictamenes(Array.isArray(dictamenes) ? dictamenes : null),
       evidencia: row.evidencia_nombre ? { nombre: row.evidencia_nombre, fecha: row.evidencia_fecha } : null }
@@ -215,6 +255,9 @@ export async function borrar_muestra_db(id_muestra: string, db: Client = getClie
     { sql: 'DELETE FROM petrografia_imagenes WHERE id_muestra = ?', args: [id_muestra] },
     { sql: 'DELETE FROM petrografias WHERE id_muestra = ?', args: [id_muestra] },
     { sql: 'DELETE FROM evidencias WHERE id_muestra = ?', args: [id_muestra] },
+    { sql: 'DELETE FROM archivos_muestra WHERE id_muestra = ?', args: [id_muestra] },
+    { sql: 'DELETE FROM drx_graficas WHERE id_muestra = ?', args: [id_muestra] },
+    { sql: 'DELETE FROM informes WHERE id_muestra = ?', args: [id_muestra] },
     { sql: 'DELETE FROM muestras WHERE id_muestra = ?', args: [id_muestra] },
   ], 'write')
 }
@@ -274,12 +317,12 @@ export async function guardar_drx_db(id: string, ensayo: { laboratorio: string; 
 export async function obtener_analisis_termico_db(id: string, db: Client = getClient()) {
   const muestra = await db.execute({ sql: 'SELECT id_muestra FROM muestras WHERE id_muestra = ?', args: [id] })
   if (!muestra.rows.length) throw error_db(404, 'La muestra no existe')
-  const res = await db.execute({ sql: 'SELECT tecnica, laboratorio, fecha_ensayo, atmosfera, tasa_calentamiento, temperatura_inicio, temperatura_fin, temperatura_evento, perdida_masa, observaciones, fecha_registro FROM analisis_termicos WHERE id_muestra = ?', args: [id] })
+  const res = await db.execute({ sql: 'SELECT tecnica, laboratorio, fecha_ensayo, atmosfera, tasa_calentamiento, temperatura_inicio, temperatura_fin, temperatura_evento, perdida_masa, sensor, nivel_lectura, duracion_min, temperatura_muestra, hora_ensayo, difusividad, capacidad_volumetrica, conductividad, syx, observaciones, fecha_registro FROM analisis_termicos WHERE id_muestra = ?', args: [id] })
   return res.rows[0] || null
 }
 
 export async function guardar_analisis_termico_db(id: string, dato: Record<string, string | number | null>, db: Client = getClient()) {
-  const campos = ['tecnica', 'laboratorio', 'fecha_ensayo', 'atmosfera', 'tasa_calentamiento', 'temperatura_inicio', 'temperatura_fin', 'temperatura_evento', 'perdida_masa', 'observaciones']
+  const campos = ['tecnica', 'laboratorio', 'fecha_ensayo', 'atmosfera', 'tasa_calentamiento', 'temperatura_inicio', 'temperatura_fin', 'temperatura_evento', 'perdida_masa', 'sensor', 'nivel_lectura', 'duracion_min', 'temperatura_muestra', 'hora_ensayo', 'difusividad', 'capacidad_volumetrica', 'conductividad', 'syx', 'observaciones']
   const tx = await db.transaction('write')
   try {
     const muestra = await tx.execute({ sql: 'SELECT id_muestra FROM muestras WHERE id_muestra = ?', args: [id] })
@@ -313,9 +356,115 @@ export async function obtener_evidencia_db(id: string, db: Client = getClient())
   return res.rows[0]!
 }
 
-export async function guardar_interpretacion_db(id: string, texto: string, db: Client = getClient()): Promise<void> {
-  await db.execute({
-    sql: 'UPDATE muestras SET interpretacion_ia = ?, interpretacion_fecha = ? WHERE id_muestra = ?',
-    args: [texto, new Date().toISOString(), id],
-  })
+
+
+export async function obtener_imagenes_petrografia_db(id: string, db: Client = getClient()) {
+  const res = await db.execute({ sql: 'SELECT nombre, condicion, tipo, contenido FROM petrografia_imagenes WHERE id_muestra = ? ORDER BY id', args: [id] })
+  return res.rows.map(r => ({ nombre: String(r.nombre), condicion: String(r.condicion), tipo: String(r.tipo), contenido: r.contenido as ArrayBuffer }))
+}
+
+export const ALCANCES = ['integral', 'petrografia', 'frx', 'drx', 'termicas'] as const
+export type Alcance = typeof ALCANCES[number]
+type Informe = { informe: string; estado: string; modelo: string | null; fecha: string }
+
+// El informe de petrografía es el mismo del módulo Petrografía (tabla petrografias); los demás viven en `informes`.
+export async function obtener_informes_db(id: string, db: Client = getClient()): Promise<Partial<Record<Alcance, Informe>>> {
+  const [otros, petro] = await Promise.all([
+    db.execute({ sql: 'SELECT alcance, informe, estado, modelo, fecha FROM informes WHERE id_muestra = ?', args: [id] }),
+    db.execute({ sql: "SELECT informe, estado, modelo, fecha FROM petrografias WHERE id_muestra = ? AND informe <> ''", args: [id] }),
+  ])
+  const res: Partial<Record<Alcance, Informe>> = {}
+  for (const r of otros.rows) res[r.alcance as Alcance] = { informe: String(r.informe), estado: String(r.estado), modelo: r.modelo == null ? null : String(r.modelo), fecha: String(r.fecha) }
+  if (petro.rows[0]) { const r = petro.rows[0]; res.petrografia = { informe: String(r.informe), estado: String(r.estado), modelo: r.modelo == null ? null : String(r.modelo), fecha: String(r.fecha) } }
+  return res
+}
+
+// Borra el informe de un alcance. En petrografía solo se vacía el informe: las fotos y sus datos se conservan.
+export async function borrar_informe_db(id: string, alcance: Alcance, db: Client = getClient()) {
+  if (alcance === 'petrografia') await db.execute({ sql: "UPDATE petrografias SET informe = '', estado = 'borrador', modelo = NULL WHERE id_muestra = ?", args: [id] })
+  else await db.execute({ sql: 'DELETE FROM informes WHERE id_muestra = ? AND alcance = ?', args: [id, alcance] })
+}
+
+export async function guardar_informe_db(id: string, alcance: Alcance, informe: string, estado: string, modelo: string | null, db: Client = getClient()) {
+  const muestra = await db.execute({ sql: 'SELECT id_muestra FROM muestras WHERE id_muestra = ?', args: [id] })
+  if (!muestra.rows.length) throw error_db(404, 'La muestra no existe')
+  const fecha = new Date().toISOString()
+  if (alcance === 'petrografia') {
+    await db.execute({ sql: `INSERT INTO petrografias (id_muestra, informe, estado, datos_json, modelo, fecha) VALUES (?, ?, ?, '{}', ?, ?)
+      ON CONFLICT(id_muestra) DO UPDATE SET informe=excluded.informe, estado=excluded.estado, modelo=COALESCE(excluded.modelo, petrografias.modelo), fecha=excluded.fecha`,
+      args: [id, informe, estado, modelo, fecha] })
+    return
+  }
+  await db.execute({ sql: `INSERT INTO informes (id_muestra, alcance, informe, estado, modelo, fecha) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id_muestra, alcance) DO UPDATE SET informe=excluded.informe, estado=excluded.estado, modelo=COALESCE(excluded.modelo, informes.modelo), fecha=excluded.fecha`,
+    args: [id, alcance, informe, estado, modelo, fecha] })
+}
+
+// Un archivo por tipo y muestra; subir de nuevo el mismo tipo lo reemplaza.
+export const TIPOS_ARCHIVO = {
+  frx_tabla_pdf: 'application/pdf', frx_tabla_png: 'image/png',
+  frx_espectro_pdf: 'application/pdf', frx_espectro_png: 'image/png',
+} as const
+export type TipoArchivo = keyof typeof TIPOS_ARCHIVO
+
+export async function guardar_archivos_db(id: string, archivos: Array<{ tipo: TipoArchivo; nombre: string; contenido: Uint8Array }>, db: Client = getClient()) {
+  const tx = await db.transaction('write')
+  try {
+    const muestra = await tx.execute({ sql: 'SELECT id_muestra FROM muestras WHERE id_muestra = ?', args: [id] })
+    if (!muestra.rows.length) throw error_db(404, 'La muestra no existe')
+    const fecha = new Date().toISOString()
+    for (const a of archivos) await tx.execute({ sql: `INSERT INTO archivos_muestra (id_muestra, tipo, nombre, mime, contenido, fecha) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id_muestra, tipo) DO UPDATE SET nombre=excluded.nombre, mime=excluded.mime, contenido=excluded.contenido, fecha=excluded.fecha`,
+      args: [id, a.tipo, a.nombre, TIPOS_ARCHIVO[a.tipo], a.contenido, fecha] })
+    await tx.commit()
+  } finally { tx.close() }
+}
+
+export async function listar_archivos_db(id: string, db: Client = getClient()) {
+  const res = await db.execute({ sql: 'SELECT id, tipo, nombre, mime, fecha FROM archivos_muestra WHERE id_muestra = ? ORDER BY tipo', args: [id] })
+  return res.rows
+}
+
+export async function obtener_archivo_db(id: string, archivoId: number, db: Client = getClient()) {
+  const res = await db.execute({ sql: 'SELECT nombre, mime, contenido FROM archivos_muestra WHERE id_muestra = ? AND id = ?', args: [id, archivoId] })
+  if (!res.rows.length) throw error_db(404, 'Archivo no encontrado')
+  return res.rows[0]
+}
+
+// Imágenes de informes de laboratorio (FRX tabla/espectro, DRX) para enviarlas al modelo.
+export async function obtener_imagenes_frx_db(id: string, db: Client = getClient()) {
+  const res = await db.execute({ sql: "SELECT tipo, contenido FROM archivos_muestra WHERE id_muestra = ? AND mime = 'image/png' ORDER BY CASE tipo WHEN 'frx_tabla_png' THEN 0 WHEN 'frx_espectro_png' THEN 1 ELSE 2 END", args: [id] })
+  return res.rows.map(r => ({ tipo: String(r.tipo), contenido: r.contenido as ArrayBuffer }))
+}
+
+export const MAX_GRAFICAS_DRX = 8
+
+// Reemplaza todas las gráficas DRX de la muestra (se suben como conjunto, igual que las fotos de petrografía).
+export async function guardar_drx_graficas_db(id: string, graficas: Array<{ nombre: string; png: Uint8Array; original?: Uint8Array | null; original_mime?: string | null }>, db: Client = getClient()) {
+  const tx = await db.transaction('write')
+  try {
+    const muestra = await tx.execute({ sql: 'SELECT id_muestra FROM muestras WHERE id_muestra = ?', args: [id] })
+    if (!muestra.rows.length) throw error_db(404, 'La muestra no existe')
+    await tx.execute({ sql: 'DELETE FROM drx_graficas WHERE id_muestra = ?', args: [id] })
+    const fecha = new Date().toISOString()
+    for (const g of graficas) await tx.execute({ sql: 'INSERT INTO drx_graficas (id_muestra, nombre, png, original, original_mime, fecha) VALUES (?, ?, ?, ?, ?, ?)', args: [id, g.nombre, g.png, g.original ?? null, g.original_mime ?? null, fecha] })
+    await tx.commit()
+  } finally { tx.close() }
+}
+
+export async function listar_drx_graficas_db(id: string, db: Client = getClient()) {
+  const res = await db.execute({ sql: 'SELECT id, nombre, original_mime FROM drx_graficas WHERE id_muestra = ? ORDER BY id', args: [id] })
+  return res.rows.map(r => ({ id: Number(r.id), nombre: String(r.nombre), original_mime: r.original_mime == null ? null : String(r.original_mime) }))
+}
+
+export async function obtener_drx_grafica_db(id: string, graficaId: number, original = false, db: Client = getClient()) {
+  const res = await db.execute({ sql: 'SELECT nombre, png, original, original_mime FROM drx_graficas WHERE id_muestra = ? AND id = ?', args: [id, graficaId] })
+  const r = res.rows[0]
+  if (!r || (original && r.original == null)) throw error_db(404, 'Gráfica no encontrada')
+  return original ? { nombre: String(r.nombre), mime: String(r.original_mime), contenido: r.original as ArrayBuffer } : { nombre: String(r.nombre).replace(/\.\w+$/, '.png'), mime: 'image/png', contenido: r.png as ArrayBuffer }
+}
+
+export async function obtener_drx_pngs_db(id: string, db: Client = getClient()) {
+  const res = await db.execute({ sql: 'SELECT nombre, png FROM drx_graficas WHERE id_muestra = ? ORDER BY id', args: [id] })
+  return res.rows.map(r => ({ nombre: String(r.nombre), contenido: r.png as ArrayBuffer }))
 }

@@ -4,7 +4,7 @@ const emit = defineEmits(['select', 'update:confirmed', 'update:replace', 'uploa
 </script>
 
 <template>
-  <AppSection title="PDF de evidencia" description="Un PDF por muestra, hasta 10 MiB. Se conserva como respaldo; no interviene en el análisis.">
+  <AppSection title="Documento de respaldo" description="Opcional: un PDF adicional por muestra (hasta 10 MiB). Se conserva como respaldo; no interviene en el análisis ni en los informes.">
     <p v-if="sample?.evidencia" class="text-sm">{{ sample.evidencia.nombre }} · {{ sample.evidencia.fecha }} <a :href="`${apiBase}/historial/${encodeURIComponent(sample.id_muestra)}/evidencia`" target="_blank" rel="noopener" class="text-emerald-700 underline">Descargar PDF</a></p>
     <label class="block text-sm font-medium text-slate-700">Seleccionar evidencia PDF<input :key="sample?.id_muestra" type="file" accept=".pdf,application/pdf" class="mt-1 block" @change="emit('select', $event)" /></label>
     <p v-if="file" class="text-sm">Archivo seleccionado: {{ file.name }}</p>
