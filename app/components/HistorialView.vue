@@ -28,13 +28,13 @@ const ANALISIS = [['FRX', (s: any) => s.caco3 != null || s.cao != null], ['DRX',
     </div>
 
     <ul v-if="samples.length" class="grid grid-cols-1 gap-3 p-3 md:grid-cols-2 md:p-4 lg:hidden">
-      <li v-for="s in samples" :key="s.id_muestra" class="flex min-w-0 flex-col gap-3 rounded-lg border bg-white p-3">
+      <li v-for="s in samples" :key="s.id_muestra" class="flex min-w-0 cursor-pointer flex-col gap-3 rounded-lg border bg-white p-3 transition-colors active:bg-emerald-50" @click="emit('open-sample', s)">
         <div class="flex items-start justify-between gap-2">
-          <button type="button" class="min-w-0 flex-1 rounded text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" @click="emit('open-sample', s)">
+          <button type="button" class="min-w-0 flex-1 rounded text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600" @click.stop="emit('open-sample', s)">
             <span class="block font-semibold text-emerald-700">{{ s.id_muestra }}<span class="sr-only">: ver detalle</span></span>
             <span class="block truncate text-xs text-slate-500">{{ s.direccion_muestreo || s.coordenadas_muestreo || 'Sin ubicación' }}</span>
           </button>
-          <UButton color="error" variant="ghost" size="lg" icon="i-heroicons-trash" :aria-label="`Eliminar muestra ${s.id_muestra}`" @click="emit('delete-sample', s.id_muestra)" />
+          <UButton color="error" variant="ghost" size="lg" icon="i-heroicons-trash" :aria-label="`Eliminar muestra ${s.id_muestra}`" @click.stop="emit('delete-sample', s.id_muestra)" />
         </div>
         <dl class="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
           <div><dt class="text-slate-500">CaCO₃</dt><dd class="font-medium tabular-nums text-slate-800">{{ num(s.caco3, '%') }}</dd></div>
