@@ -48,21 +48,21 @@ watch(() => props.sample?.id_muestra, async id => {
 
 <template>
   <div class="space-y-5">
-    <nav class="flex gap-1 rounded-lg bg-slate-100 p-1" role="tablist" aria-label="Secciones del detalle">
-      <button v-for="p in PESTANAS" :key="p.id" type="button" role="tab" :aria-selected="pestana === p.id" class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors" :class="pestana === p.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'" @click="pestana = p.id">{{ p.label }}</button>
+    <nav class="-mx-1 flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 sm:mx-0" role="tablist" aria-label="Secciones del detalle">
+      <button v-for="p in PESTANAS" :key="p.id" type="button" role="tab" :aria-selected="pestana === p.id" class="min-h-11 shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-emerald-600 sm:min-h-0 sm:flex-1" :class="pestana === p.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'" @click="pestana = p.id">{{ p.label }}</button>
     </nav>
 
     <!-- Resumen: lo que decide el destino de la muestra -->
     <div v-show="pestana === 'resumen'" class="space-y-6">
       <p v-if="sample?.version_evaluacion !== 2" class="rounded-lg border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-800">Registro histórico: evaluado con una versión anterior; se conserva sin recalcular.</p>
-      <div class="grid grid-cols-3 gap-3 sm:grid-cols-6">
+      <div class="grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
         <div v-for="[k, label, u] in KPIS" :key="k" class="rounded-lg border bg-white p-3"><p class="text-xs text-slate-500">{{ label }}</p><p class="mt-1 text-lg font-semibold tabular-nums text-slate-900">{{ num(sample?.[k]) }}<span v-if="u && sample?.[k] != null" class="ml-0.5 text-xs font-normal text-slate-500">{{ u }}</span></p></div>
       </div>
-      <div v-if="sample?.resumen" class="grid gap-3 sm:grid-cols-4">
+      <div v-if="sample?.resumen" class="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3">
         <div class="rounded-lg bg-emerald-50 p-3"><p class="text-2xl font-bold text-emerald-700">{{ sample.resumen.aptos }}</p><p class="text-xs text-emerald-800">usos aptos</p></div>
         <div class="rounded-lg bg-rose-50 p-3"><p class="text-2xl font-bold text-rose-700">{{ sample.resumen.no_aptos }}</p><p class="text-xs text-rose-800">no aptos</p></div>
         <div class="rounded-lg bg-amber-50 p-3"><p class="text-2xl font-bold text-amber-700">{{ sample.resumen.pendientes }}</p><p class="text-xs text-amber-800">requieren ensayos</p></div>
-        <div class="rounded-lg border p-3"><p class="text-xs text-slate-500">Mejor destino técnico</p><p class="mt-1 font-semibold text-slate-900">{{ aptos[0] || 'Ninguno por ahora' }}</p></div>
+        <div class="col-span-3 rounded-lg border p-3 sm:col-span-1"><p class="text-xs text-slate-500">Mejor destino técnico</p><p class="mt-1 font-semibold text-slate-900">{{ aptos[0] || 'Ninguno por ahora' }}</p></div>
       </div>
       <div>
         <h3 class="mb-1 font-semibold">Usos industriales por nivel de valor</h3>
@@ -94,7 +94,7 @@ watch(() => props.sample?.id_muestra, async id => {
       <section>
         <h3 class="mb-2 font-semibold">FRX · geoquímica</h3>
         <p class="mb-3 text-xs text-slate-500">Base declarada: {{ sample?.contexto?.base || 'no registrada' }} · trazas: {{ sample?.contexto?.base_trazas || 'no registrada' }}<template v-if="sample?.contexto?.convertir"> · convertido a base seca con LOI {{ num(sample.contexto.loi, '%') }}</template></p>
-        <div class="overflow-hidden rounded-lg border">
+        <div class="overflow-x-auto rounded-lg border">
           <table class="w-full text-sm">
             <thead class="bg-slate-50 text-left text-xs text-slate-500"><tr><th class="px-3 py-2 font-medium">Parámetro</th><th class="px-3 py-2 text-right font-medium">Valor usado</th><th class="px-3 py-2 font-medium">Procedencia</th></tr></thead>
             <tbody class="divide-y"><tr v-for="c in chemicalFields" :key="c.key"><td class="px-3 py-1.5">{{ c.label }}</td><td class="px-3 py-1.5 text-right tabular-nums">{{ num(sample?.[c.key], c.unit) }}</td><td class="px-3 py-1.5 text-xs text-slate-500">{{ sample?.[c.key] == null ? 'no medido' : sample?.contexto?.procedencia?.[c.key] || 'medido' }}</td></tr></tbody>

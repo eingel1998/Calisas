@@ -54,14 +54,14 @@ onMounted(cargar)
 </script>
 
 <template>
-  <div class="max-w-3xl space-y-5">
-    <div><h2 class="text-2xl font-bold">Configuración de IA</h2><p class="text-sm text-slate-600">Proveedor, modelo y system prompts del informe integral y del borrador petrográfico. Los cambios se aplican a los próximos análisis sin desplegar.</p></div>
+  <div class="max-w-3xl space-y-4 md:space-y-5">
+    <div><h2 class="hidden text-2xl font-bold md:block">Configuración de IA</h2><p class="text-sm text-slate-600">Proveedor, modelo y system prompts del informe integral y del borrador petrográfico. Los cambios se aplican a los próximos análisis sin desplegar.</p></div>
     <form class="space-y-5" @submit.prevent="guardar">
       <UCard><div class="space-y-4">
-        <UFormField label="URL base del proveedor"><UInput v-model="baseURL" type="url" required class="w-full" placeholder="https://openrouter.ai/api/v1" /></UFormField>
-        <UFormField label="Modelo con visión"><UInput v-model="model" required class="w-full" placeholder="google/gemini-3.8-flash" /></UFormField>
+        <UFormField label="URL base del proveedor"><UInput v-model="baseURL" size="lg" type="url" required class="w-full" placeholder="https://openrouter.ai/api/v1" /></UFormField>
+        <UFormField label="Modelo con visión"><UInput v-model="model" size="lg" required class="w-full" placeholder="google/gemini-3.8-flash" /></UFormField>
         <UFormField label="Proveedor en OpenRouter (opcional)" help="Proveedor preferido para ejecutar el modelo; si está saturado o falla, OpenRouter usa otro. Ej: google-ai-studio/flex es más barato pero con más latencia. Varios separados por coma. Vacío = OpenRouter elige."><UInput v-model="proveedor" class="w-full" placeholder="google-ai-studio/flex" /></UFormField>
-        <UFormField label="Clave API"><UInput v-model="apiKey" type="password" autocomplete="new-password" class="w-full" placeholder="Déjala vacía para conservar la clave actual" /></UFormField>
+        <UFormField label="Clave API"><UInput v-model="apiKey" size="lg" type="password" autocomplete="new-password" class="w-full" placeholder="Déjala vacía para conservar la clave actual" /></UFormField>
         <p v-if="savedKey" class="text-xs text-emerald-700">✓ Hay una clave guardada aquí. Nunca se muestra; escribe una nueva solo para reemplazarla.</p>
         <p v-else-if="hasKey" class="rounded border-l-4 border-amber-500 bg-amber-50 p-2 text-xs text-amber-800">No hay clave guardada aquí: se está usando la del archivo <code>.env</code> del servidor, que puede ser de otro proveedor. Pega la clave del proveedor de arriba y guarda.</p>
         <p v-else class="text-xs text-rose-700">Falta la clave API del proveedor.</p>
@@ -77,7 +77,7 @@ onMounted(cargar)
       </UCard>
 
       <div><h3 class="text-lg font-bold">System prompts</h3><p class="text-xs text-slate-500">Un prompt por análisis. Vacío = se usa el prompt por defecto (visible como texto de ejemplo). Las reglas anti-invención, el formato de secciones y la matriz de usos industriales se agregan siempre y no se editan aquí.</p></div>
-      <UCard v-for="b in bloques" :key="b.clave" :class="b.nivel ? 'ml-8 border-l-4 border-emerald-300' : ''">
+      <UCard v-for="b in bloques" :key="b.clave" class="min-w-0" :class="b.nivel ? 'ml-3 sm:ml-8 border-l-4 border-emerald-300' : ''">
         <template #header>
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div><p class="font-semibold">{{ b.titulo }}</p><p class="text-xs text-slate-500">{{ b.ayuda }}</p></div>
@@ -92,7 +92,7 @@ onMounted(cargar)
       </UCard>
 
       <p v-if="error" role="alert" class="text-sm text-rose-600">{{ error }}</p>
-      <UButton type="submit" color="success" :loading="busy">Guardar configuración</UButton>
+      <div class="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 -mx-3 border-t bg-white px-3 py-2 sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 md:bottom-4"><UButton type="submit" color="success" size="lg" :loading="busy" class="w-full justify-center sm:w-auto">Guardar configuración</UButton></div>
     </form>
   </div>
 </template>

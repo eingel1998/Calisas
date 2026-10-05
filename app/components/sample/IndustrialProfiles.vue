@@ -24,7 +24,7 @@ const porNombre = (nombre: string) => props.dictamenes?.find(d => d.nombre === n
                   <tr v-for="(c, i) in porNombre(nombre).criterios" :key="i" class="border-t">
                     <td class="py-1.5 pr-2">{{ chemicalText(c.etiqueta) }}</td>
                     <td class="py-1.5 pr-2 text-right tabular-nums">{{ num(c.valor, c.unidad) }}</td>
-                    <td class="py-1.5 pr-2 text-slate-500">{{ c.procedencia || '—' }}</td>
+                    <td class="py-1.5 pr-2 text-slate-500">{{ c.procedencia || '-' }}</td>
                     <td class="py-1.5"><span :class="c.estado === 'Cumple' ? 'text-emerald-700' : c.estado === 'Incumple' ? 'text-rose-700' : 'text-amber-700'">{{ c.estado }}</span></td>
                   </tr>
                 </tbody>

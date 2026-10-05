@@ -1,9 +1,9 @@
 <template>
   <UApp>
-    <div v-if="sessionPending" class="min-h-screen bg-slate-50 flex items-center justify-center">
+    <div v-if="sessionPending" class="min-h-dvh bg-slate-50 flex items-center justify-center">
       <UIcon name="i-lucide-loader-2" class="animate-spin size-8 text-emerald-600" />
     </div>
-    <div v-else-if="!session" class="min-h-screen grid md:grid-cols-2 bg-white">
+    <div v-else-if="!session" class="min-h-dvh grid md:grid-cols-2 bg-white">
       <section class="relative hidden md:flex flex-col justify-between overflow-hidden bg-slate-900 p-12 text-white">
         <img src="/logo.svg" alt="" class="pointer-events-none absolute -right-24 -bottom-24 size-[28rem] opacity-10 rotate-12">
         <div class="flex items-center gap-3">
@@ -30,31 +30,26 @@
         </form>
       </div>
     </div>
-    <div v-else class="flex min-h-screen bg-slate-50 text-slate-800">
-    <SidebarNav
-      v-model:mobile-open="mobileMenuOpen"
-      :active-tab="activeTab"
-      :can-configure="canConfigure"
-      @navigate="({ tab }) => { activeTab = tab; if (tab === 'cargar') muestraEnEdicion = null }"
-    />
+    <div v-else class="flex min-h-dvh bg-slate-50 text-slate-800">
+    <SidebarNav :active-tab="activeTab" :can-configure="canConfigure" @navigate="irA" />
+    <BottomTabBar :active-tab="activeTab" :can-configure="canConfigure" @navigate="irA" />
 
-    <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
-      <!-- Top header bar -->
-      <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-8">
-        <div class="flex items-center gap-2">
-          <UButton class="md:hidden" variant="ghost" color="neutral" icon="i-heroicons-bars-3" aria-label="Abrir menú" @click="mobileMenuOpen = true" />
-          <h2 class="text-xl font-bold text-slate-800">{{ pageTitle }}</h2>
-          <span class="hidden rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600 sm:inline">Local DB (SQLite)</span>
+    <main class="flex min-w-0 flex-1 flex-col">
+      <header class="sticky top-0 z-30 flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 pt-[env(safe-area-inset-top)] md:static md:px-8">
+        <div class="flex h-14 min-w-0 items-center gap-1 md:h-16 md:gap-2">
+          <UButton v-if="muestraEnEdicion && activeTab === 'cargar'" class="md:hidden" variant="ghost" color="neutral" icon="i-heroicons-arrow-left" aria-label="Volver al detalle" @click="cancelarEdicion" />
+          <img src="/logo.svg" alt="" class="size-7 shrink-0 md:hidden" :class="muestraEnEdicion && activeTab === 'cargar' && 'hidden'">
+          <h2 class="truncate text-base font-bold text-slate-800 md:text-xl">{{ pageTitle }}</h2>
+          <span class="hidden shrink-0 rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-600 sm:inline">Local DB (SQLite)</span>
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex shrink-0 items-center gap-4">
           <span class="hidden text-sm text-slate-500 lg:inline">Evaluación de usos industriales</span>
-          <UButton variant="ghost" color="neutral" icon="i-lucide-log-out" size="sm" @click="handleLogout">Salir</UButton>
+          <UButton variant="ghost" color="neutral" icon="i-lucide-log-out" size="sm" aria-label="Cerrar sesión" @click="handleLogout"><span class="hidden sm:inline">Salir</span></UButton>
         </div>
       </header>
 
       <!-- Content Views -->
-      <div class="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">
+      <div class="mx-auto w-full max-w-7xl flex-1 px-3 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-4 md:p-6 lg:p-8">
 
         <DashboardView v-if="activeTab === 'dashboard'" :samples="samples" :loading="historyLoading" :error="historyError" :summary-text="summaryText" @navigate="target => { activeTab = target === 'historial' ? 'historial' : 'cargar'; }" @export="downloadExcel" @open-sample="viewSampleDetails" @retry="fetchHistorial" />
 
@@ -128,7 +123,11 @@ async function handleLogout() {
 }
 
 const activeTab = ref('dashboard')
-const mobileMenuOpen = ref(false)
+function irA({ tab }) {
+  activeTab.value = tab
+  if (tab === 'cargar') muestraEnEdicion.value = null
+  window.scrollTo({ top: 0 })
+}
 const muestraEnEdicion = ref(null)
 function editarMuestra(sample) {
   muestraEnEdicion.value = sample

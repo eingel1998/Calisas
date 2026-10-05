@@ -201,9 +201,9 @@ async function guardar() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl space-y-6 pb-28">
+  <div class="mx-auto max-w-5xl space-y-4 pb-44 md:space-y-6 md:pb-28">
     <!-- 1. Muestra -->
-    <section class="rounded-xl border bg-white p-5">
+    <section class="rounded-xl border bg-white p-4 md:p-5">
       <h3 class="flex items-center gap-2 font-bold"><span class="grid size-6 place-items-center rounded-full bg-emerald-600 text-xs text-white">1</span>Muestra</h3>
       <p class="mb-4 mt-1 text-sm text-slate-500">{{ editando ? 'El ID no se puede cambiar. La ubicación se usa en el análisis de mercado.' : 'Registro base. Todos los análisis se asocian a este ID; la ubicación se usa en el análisis de mercado.' }}</p>
       <div class="grid gap-3 md:grid-cols-3">
@@ -214,7 +214,7 @@ async function guardar() {
     </section>
 
     <!-- 2. Análisis -->
-    <section class="rounded-xl border bg-white p-5">
+    <section class="rounded-xl border bg-white p-4 md:p-5">
       <h3 class="flex items-center gap-2 font-bold"><span class="grid size-6 place-items-center rounded-full bg-emerald-600 text-xs text-white">2</span>¿Qué análisis tiene?</h3>
       <p class="mb-4 mt-1 text-sm text-slate-500">{{ editando ? 'Los análisis guardados aparecen marcados; marca los que falten para agregarlos.' : 'Cada análisis es independiente; marca los que tengas. Se complementan en el informe integral.' }}</p>
       <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -227,7 +227,7 @@ async function guardar() {
 
     <!-- 3. Un bloque por análisis, en orden fijo -->
     <div :key="version" class="space-y-6">
-      <section v-if="activo('frx')" class="rounded-xl border bg-white p-5">
+      <section v-if="activo('frx')" class="rounded-xl border bg-white p-4 md:p-5">
         <h3 class="flex items-center gap-2 font-bold"><UIcon name="i-heroicons-beaker" class="size-5 text-emerald-600" />FRX · geoquímica</h3>
         <p class="mb-4 mt-1 text-sm text-slate-500">Sube la tabla «Sample results» del laboratorio: los valores se extraen solos y puedes corregirlos.{{ editando ? ' Al guardar se recalculan los dictámenes.' : '' }}</p>
         <p v-if="!frxEditable" class="mb-4 rounded border-l-4 border-amber-500 bg-amber-50 p-2 text-sm text-amber-800">Registro histórico: su FRX se conserva sin recalcular y no se puede editar. Sí puedes agregar o editar los demás análisis.</p>
@@ -251,42 +251,42 @@ async function guardar() {
         <template v-if="hayFrx">
         <p class="mb-2 mt-5 text-sm font-semibold">Valores extraídos <span class="font-normal text-slate-500">· revísalos; vacío = no medido</span></p>
         <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <AppField v-for="c in QUIMICOS" :key="c.key" v-model.number="f.valores[c.key]" :label="`${c.label} (${c.unit})`" type="number" step="any" min="0" :max="c.unit === '%' ? 100 : undefined" placeholder="—" />
+          <AppField v-for="c in QUIMICOS" :key="c.key" v-model.number="f.valores[c.key]" :label="`${c.label} (${c.unit})`" type="number" step="any" min="0" :max="c.unit === '%' ? 100 : undefined" placeholder="-" />
         </div>
         <div class="mt-4 space-y-2">
           <details class="rounded-lg border p-3 text-sm"><summary class="cursor-pointer font-semibold">Base analítica y LOI {{ f.contexto.base === 'calcinada' ? '· calcinada' : '' }}</summary><div class="mt-3"><EvaluationContextPanel v-model:options="f.contexto" :base-options="baseOptions" :is-batch="false" /></div></details>
-          <details class="rounded-lg border p-3 text-sm"><summary class="cursor-pointer font-semibold">Ensayos adicionales (habilitan más usos industriales)</summary><div class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4"><AppField v-for="[k, label] in EXTRAS" :key="k" v-model.number="f.extras[k]" :label="label" type="number" step="any" min="0" placeholder="—" /></div></details>
+          <details class="rounded-lg border p-3 text-sm"><summary class="cursor-pointer font-semibold">Ensayos adicionales (habilitan más usos industriales)</summary><div class="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4"><AppField v-for="[k, label] in EXTRAS" :key="k" v-model.number="f.extras[k]" :label="label" type="number" step="any" min="0" placeholder="-" /></div></details>
           <details v-if="f.extraccion?.originales.length" class="rounded-lg border p-3 text-sm"><summary class="cursor-pointer font-semibold">Reporte original completo ({{ f.extraccion.originales.length }} compuestos)</summary><div class="mt-3"><OriginalCompositionTable :originales="f.extraccion.originales" :chemical-text="chemicalText" /></div></details>
         </div>
         </template>
         </fieldset>
       </section>
 
-      <section v-if="activo('drx')" class="rounded-xl border bg-white p-5">
+      <section v-if="activo('drx')" class="rounded-xl border bg-white p-4 md:p-5">
         <h3 class="mb-4 flex items-center gap-2 font-bold"><UIcon name="i-heroicons-cube-transparent" class="size-5 text-emerald-600" />DRX · mineralogía</h3>
         <DrxView ref="drxRef" :api-base="apiBase" :sample-id="editando ? f.muestra.id : undefined" :nuevo="!editando" />
       </section>
 
-      <section v-if="activo('petrografia')" class="rounded-xl border bg-white p-5">
+      <section v-if="activo('petrografia')" class="rounded-xl border bg-white p-4 md:p-5">
         <h3 class="mb-4 flex items-center gap-2 font-bold"><UIcon name="i-heroicons-photo" class="size-5 text-emerald-600" />Petrografía · secciones delgadas</h3>
         <PetrografiaView ref="petroRef" :api-base="apiBase" :sample-id="f.muestra.id.trim()" :nuevo="!editando" />
       </section>
 
-      <section v-if="activo('termicas')" class="rounded-xl border bg-white p-5">
+      <section v-if="activo('termicas')" class="rounded-xl border bg-white p-4 md:p-5">
         <h3 class="mb-4 flex items-center gap-2 font-bold"><UIcon name="i-heroicons-fire" class="size-5 text-emerald-600" />Propiedades térmicas</h3>
         <TermicasView ref="termicasRef" :api-base="apiBase" :sample-id="editando ? f.muestra.id : undefined" :nuevo="!editando" />
       </section>
     </div>
 
     <!-- Guardado único -->
-    <div class="fixed inset-x-0 bottom-0 z-30 border-t bg-white/95 backdrop-blur md:left-72">
-      <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <p class="text-sm text-slate-600">
+    <div class="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t bg-white md:bottom-0 md:left-20 lg:left-72">
+      <div class="mx-auto flex max-w-5xl flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-4 sm:py-3">
+        <p class="line-clamp-2 min-w-0 text-xs text-slate-600 sm:text-sm">
           <span v-if="f.muestra.id.trim() && faltantes.length" class="text-amber-700"><UIcon name="i-heroicons-exclamation-triangle" class="mr-1 inline size-4 align-text-bottom" />{{ faltantes.join(' · ') }}</span>
           <template v-else-if="f.muestra.id.trim()"><b>{{ f.muestra.id.trim() }}</b> · {{ f.analisis.length ? ANALISIS.filter(a => activo(a.id)).map(a => a.label).join(' · ') : 'sin análisis (solo registro base)' }}</template>
           <template v-else>Escribe el ID de la muestra (o sube el PDF del FRX) para guardar.</template>
         </p>
-        <div class="flex gap-2"><UButton v-if="editando" variant="ghost" color="neutral" size="lg" :disabled="guardando" @click="emit('cancel')">Cancelar</UButton><UButton color="success" size="lg" icon="i-heroicons-check" :loading="guardando" :disabled="!puedeGuardar" @click="guardar">{{ editando ? 'Guardar cambios' : 'Guardar muestra' }}</UButton></div>
+        <div class="flex shrink-0 gap-2"><UButton v-if="editando" variant="ghost" color="neutral" size="lg" :disabled="guardando" @click="emit('cancel')">Cancelar</UButton><UButton color="success" size="lg" class="flex-1 justify-center sm:flex-none" icon="i-heroicons-check" :loading="guardando" :disabled="!puedeGuardar" @click="guardar">{{ editando ? 'Guardar cambios' : 'Guardar muestra' }}</UButton></div>
       </div>
     </div>
   </div>

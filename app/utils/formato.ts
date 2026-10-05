@@ -2,13 +2,13 @@ const numero = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 })
 const fechaCorta = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
 
 export function num(v: unknown, unidad = '') {
-  if (v == null || v === '' || !Number.isFinite(Number(v))) return '—'
+  if (v == null || v === '' || !Number.isFinite(Number(v))) return '-'
   return `${numero.format(Number(v))}${unidad ? ` ${unidad}` : ''}`
 }
 
 export function fecha(iso?: string | null) {
   const d = iso ? new Date(iso) : null
-  return d && !Number.isNaN(d.getTime()) ? fechaCorta.format(d) : '—'
+  return d && !Number.isNaN(d.getTime()) ? fechaCorta.format(d) : '-'
 }
 
 // Mismos niveles que el informe integral (server/utils/informe-integral.ts), de mayor a menor valor por tonelada.
