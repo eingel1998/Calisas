@@ -28,6 +28,11 @@
           <span class="text-center leading-tight lg:hidden">{{ item.short }}</span>
           <span class="hidden lg:inline">{{ item.label }}</span>
         </button>
+        <button v-if="canInstall" type="button" class="flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[11px] font-medium text-slate-300 hover:bg-slate-800 hover:text-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 lg:min-h-0 lg:flex-row lg:justify-start lg:gap-3 lg:px-4 lg:py-2.5 lg:text-sm" @click="emit('install')">
+          <UIcon name="i-lucide-download" class="size-5 shrink-0" />
+          <span class="lg:hidden">Instalar</span>
+          <span class="hidden lg:inline">Instalar app</span>
+        </button>
       </nav>
     </div>
 
@@ -41,9 +46,10 @@
 <script setup>
 defineProps({
   activeTab: { type: String, required: true },
-  canConfigure: { type: Boolean, default: false }
+  canConfigure: { type: Boolean, default: false },
+  canInstall: { type: Boolean, default: false }
 })
-const emit = defineEmits(['navigate'])
+const emit = defineEmits(['navigate', 'install'])
 
 const navItems = [
   { id: 'dashboard', icon: 'i-heroicons-squares-2x2', label: 'Dashboard', short: 'Inicio' },

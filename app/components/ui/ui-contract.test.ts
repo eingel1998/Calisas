@@ -26,7 +26,7 @@ it('usa la barra lateral compartida', () => {
   expect(app).toContain('<SidebarNav')
   for (const tab of ['dashboard', 'cargar', 'historial', 'configuracion']) expect(sidebar).toContain(`{ id: '${tab}'`)
   expect(sidebar).not.toContain("id: 'analisis'")
-  expect(sidebar).toContain("defineEmits(['navigate'])")
+  expect(sidebar).toContain("defineEmits(['navigate', 'install'])")
 })
 
 it('carga una muestra con todos sus análisis en un solo panel', () => {

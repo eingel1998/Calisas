@@ -31,7 +31,7 @@
       </div>
     </div>
     <div v-else class="flex min-h-dvh bg-slate-50 text-slate-800">
-    <SidebarNav :active-tab="activeTab" :can-configure="canConfigure" @navigate="irA" />
+    <SidebarNav :active-tab="activeTab" :can-configure="canConfigure" :can-install="canInstall" @install="installApp" @navigate="irA" />
     <BottomTabBar :active-tab="activeTab" :can-configure="canConfigure" @navigate="irA" />
 
     <main class="flex min-w-0 flex-1 flex-col">
@@ -44,12 +44,28 @@
         </div>
         <div class="flex shrink-0 items-center gap-4">
           <span class="hidden text-sm text-slate-500 lg:inline">Evaluación de usos industriales</span>
-          <UButton variant="ghost" color="neutral" icon="i-lucide-log-out" size="sm" aria-label="Cerrar sesión" @click="handleLogout"><span class="hidden sm:inline">Salir</span></UButton>
+          <UButton popovertarget="mobile-app-actions" class="min-h-11 min-w-11 justify-center md:hidden" variant="ghost" color="neutral" icon="i-heroicons-ellipsis-vertical" aria-label="Abrir menú de la app" />
+          <div id="mobile-app-actions" ref="mobileActions" popover aria-label="Acciones de la app" class="fixed top-14 right-3 left-auto m-0 min-w-48 rounded-lg border bg-white p-1 shadow-lg">
+            <UButton v-if="canInstall" block class="min-h-11 justify-start" variant="ghost" color="neutral" icon="i-heroicons-arrow-down-tray" :disabled="installingApp" @click="mobileActions.hidePopover(); installApp()">Instalar app</UButton>
+            <UButton block class="min-h-11 justify-start" variant="ghost" color="neutral" icon="i-lucide-log-out" @click="mobileActions.hidePopover(); handleLogout()">Cerrar sesión</UButton>
+          </div>
+          <UButton class="hidden md:inline-flex" variant="ghost" color="neutral" icon="i-lucide-log-out" size="sm" aria-label="Cerrar sesión" @click="handleLogout">Salir</UButton>
         </div>
       </header>
 
       <!-- Content Views -->
       <div class="mx-auto w-full max-w-7xl flex-1 px-3 pt-4 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:px-4 md:p-6 lg:p-8">
+        <section v-if="showInstallBanner" aria-label="Instalar app" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <div>
+            <p class="font-semibold text-slate-900">¿Quieres tener la app a mano?</p>
+            <p class="text-sm text-slate-700">Instálala para abrirla desde {{ installMobile ? 'tu pantalla principal' : 'tu escritorio' }}.</p>
+          </div>
+          <div class="flex gap-2">
+            <UButton color="success" icon="i-lucide-download" :loading="installingApp" @click="installApp">Instalar app</UButton>
+            <UButton color="neutral" variant="ghost" @click="dismissInstall">Ahora no</UButton>
+          </div>
+        </section>
+        <p v-if="installError" role="alert" class="mb-4 text-sm text-rose-700">{{ installError }}</p>
 
         <DashboardView v-if="activeTab === 'dashboard'" :samples="samples" :loading="historyLoading" :error="historyError" :summary-text="summaryText" @navigate="target => { activeTab = target === 'historial' ? 'historial' : 'cargar'; }" @export="downloadExcel" @open-sample="viewSampleDetails" @retry="fetchHistorial" />
 
@@ -69,6 +85,20 @@
     <SampleDetailDrawer v-model:open="drawerOpen" :sample="selectedSample" @edit="editarMuestra(selectedSample)">
       <DetalleMuestra :sample="selectedSample" :api-base="apiBase" :chemical-fields="chemicalFields" :chemical-text="chemicalText" :file="evidenceFile" :confirmed="evidenceConfirmed" :replace="replaceEvidence" :loading="evidenceLoading" @select-evidence="selectEvidence" @update:confirmed="evidenceConfirmed = $event" @update:replace="replaceEvidence = $event" @upload-evidence="uploadEvidence" />
     </SampleDetailDrawer>
+
+    <UModal v-model:open="installInstructionsOpen" title="Instalar app en tu pantalla principal" description="Añade un acceso para abrir Calcita como una app.">
+      <template #body>
+        <ol class="list-decimal space-y-3 pl-5 text-slate-700">
+          <li>Abre el menú de <strong>Compartir</strong> del navegador.</li>
+          <li>Selecciona <strong>Añadir a pantalla de inicio</strong>. Puede estar en <strong>Más</strong> o <strong>Editar acciones</strong>.</li>
+          <li>Si aparece <strong>Abrir como app web</strong>, déjalo activado y pulsa <strong>Añadir</strong>.</li>
+        </ol>
+        <p class="mt-4 text-sm text-slate-600">Si no encuentras la opción, abre esta misma página en Safari.</p>
+      </template>
+      <template #footer>
+        <UButton color="success" @click="installInstructionsOpen = false; dismissInstall()">Entendido</UButton>
+      </template>
+    </UModal>
 
     <!-- CONFIRM DELETE DIALOG -->
     <UModal v-model:open="deleteModalOpen">
@@ -93,6 +123,9 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { authClient } from '~/utils/auth-client'
+
+const { available: canInstall, showBanner: showInstallBanner, mobile: installMobile, installing: installingApp, instructionsOpen: installInstructionsOpen, error: installError, dismiss: dismissInstall, install: installApp } = usePwaInstall()
+const mobileActions = ref(null)
 
 const config = useRuntimeConfig()
 const apiBase = config.public.apiBase
