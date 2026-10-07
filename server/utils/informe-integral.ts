@@ -81,6 +81,7 @@ Estos niveles son cualitativos: no asignes precios, volúmenes ni compradores sa
 // Solo en el integral con búsqueda web activa (OpenRouter server tool).
 const BUSQUEDA_WEB = `Búsqueda web disponible: tienes la herramienta de búsqueda en internet. Úsala para el análisis de mercado regional, anclado en <ubicacion>:
 - Busca por municipio, departamento y país (nunca pegues las coordenadas en la consulta).
+- Mide las distancias desde las coordenadas de <ubicacion> si existen; si no, desde el casco urbano del municipio indicado. Presenta los compradores ordenados de menor a mayor distancia y apoya la recomendación en el más cercano de un uso viable.
 - Prioriza los mercados a los que la muestra ACCEDE o accede con beneficio según los dictámenes: busca compradores industriales en la zona (cementeras, caleras, plantas de alimentos balanceados, papeleras, fabricantes de plásticos o pinturas, plantas de tratamiento de agua, siderúrgicas, distribuidores agrícolas), productores o canteras competidoras cercanas, precios de referencia por uso y la infraestructura logística relevante (vías, puertos).
 - Cada empresa, precio o dato de mercado debe llevar su enlace en markdown. Si no encuentras información fiable, dilo: NO inventes empresas, precios ni distancias.
 - Separa claramente lo encontrado en la web (con fuente) de lo que infieres.
@@ -101,9 +102,8 @@ const APARTADOS: Record<Alcance, Apartado[]> = {
     ['Recomendación', 'un párrafo corto y directo con el destino recomendado y el siguiente paso.'],
   ],
   petrografia: [
-    ['Lo que se observa', 'descripción de las secciones delgadas, separando observación de interpretación.'],
     ['Minerales observados', 'los identificables ópticamente en las fotos, con su grado de certeza.'],
-    ['Textura y fábrica', ''],
+    ['Textura y fábrica', 'describe lo que se ve en el campo (fábrica, soporte, relación bioclasto–matriz) sin repetir en otros apartados lo ya dicho. La falta de escala o de nícoles cruzados se declara solo en «Límites y análisis pendientes».'],
     ['Componentes', 'carbonatados y no carbonatados: aloquímicos, matriz, cemento, terrígenos.'],
     ['Historia diagenética', 'solo los procesos visibles en las fotos, en prosa y con su grado de certeza; no reconstruyas una secuencia completa que la imagen no sostiene.'],
     ['Clasificación', 'Folk y/o Dunham, justificada con lo observado.'],
@@ -112,30 +112,26 @@ const APARTADOS: Record<Alcance, Apartado[]> = {
     ['Límites y análisis pendientes', 'lo que no puede concluirse y qué lo resolvería.'],
   ],
   frx: [
-    ['El análisis y la calidad del dato', 'método y condiciones de medición, base analítica, LOI medido o estimado, y confiabilidad de cada traza (confiable / dudosa / probable artefacto) en una tabla. Explica ahí mismo, en pocas frases, solo los artefactos que cambian la lectura (por ejemplo, un metal pesado dudoso que afecta un dictamen); no dediques un apartado aparte a esto.'],
-    ['Lo que dicen los óxidos', 'conversiones y relaciones (CaO/MgO, SiO₂/Al₂O₃, K₂O/Al₂O₃) y su lectura.'],
-    ['Pureza', 'con la escala explícita, indicando si el valor es medido o estimado.'],
-    ['Qué revela de la roca', 'impurezas y sus fases portadoras probables, siempre como inferencia.'],
-    ['Para qué podría servir', 'síntesis orientativa: usos aptos, bloqueos principales y qué cambiaría con un LOI medido. No repitas la lista completa de dictámenes: la aplicación ya la muestra.'],
-    ['En resumen', 'un párrafo corto con lo esencial y lo que falta medir.'],
+    ['Lo que dicen los óxidos', 'conversiones y relaciones (CaO/MgO, SiO₂/Al₂O₃, K₂O/Al₂O₃) y su lectura. Cifras en base seca; la base calcinada solo si hace falta. Sin tabla de trazas ni descripción del equipo o de las condiciones de medición.'],
+    ['Pureza', 'con la escala explícita. En una o dos frases, di que el LOI es estimado (o medido) y por qué el CaCO₃ equivalente no es una pureza gravimétrica. Es el único lugar donde se habla de la calidad del dato.'],
+    ['Qué revela de la roca', 'impurezas y sus fases portadoras probables, siempre como inferencia (hipótesis, no hallazgos); el ambiente de depósito, solo como hipótesis preliminar.'],
+    ['Para qué podría servir', 'síntesis orientativa: usos aptos y bloqueos principales agrupados por causa (sílice, hierro, pureza), no uso por uso, y qué cambiaría con un LOI medido. No repitas la lista completa de dictámenes: la aplicación ya la muestra. No uses como causa de descarte una traza dudosa.'],
+    ['En resumen', 'un párrafo corto con lo esencial y lo que falta medir, sin repetir las cifras ya dadas más de lo necesario.'],
   ],
   drx: [
     ['Lo que muestra el difractograma', 'observación de las gráficas: picos, intensidades, fondo.'],
     ['Fases identificadas', 'cada fase como confirmada, probable o tentativa.'],
-    ['Lectura mineralógica', 'fase dominante, secundarias y cristalinidad.'],
-    ['Pureza mineralógica', ''],
-    ['Límites del análisis', 'lo que el DRX no permite concluir. Este informe es solo de DRX: el contraste con FRX y petrografía se hace en los informes de petrografía e integral, así que no declares esos análisis como no disponibles.'],
+    ['Lectura mineralógica', 'fase dominante y secundarias; sin cristalinidad, sustitución catiónica ni tamaño de cristalito (no se leen de una imagen). Si hay un rótulo de porcentaje en la leyenda, acláralo aquí en una frase.'],
+    ['Pureza mineralógica', 'una o dos frases: la pureza vale solo para las fases cristalinas detectadas; lo «no detectado» (límite típico 1–3 % en peso) no equivale a ausente. Es el único lugar donde se mencionan límites.'],
   ],
   termicas: [
     ['Cómo se midió', 'equipo, sensor, condiciones y calidad de la lectura (Sᵧₓ).'],
     ['Resultados', 'difusividad, capacidad calorífica y conductividad.'],
     ['Comparación con otras calizas', 'frente a rangos típicos de calizas compactas.'],
-    ['Qué refleja de la roca', 'relación con porosidad, fracturamiento, humedad y mineralogía.'],
-    ['Implicaciones para su uso', 'calcinación, construcción o aislamiento, sin afirmar aptitudes ajenas a los dictámenes.'],
-    ['Límites de la medición', ''],
+    ['Qué refleja de la roca', 'relación con porosidad, fracturamiento, humedad y mineralogía; si el contacto o el estado de la muestra no se conocen, di en pocas frases qué escenarios caben y qué dato los distinguiría. Es el único lugar donde se habla de límites de la medición (una sola lectura, sin repetibilidad) y de por qué no se derivan usos: no abras apartados de implicaciones ni de límites.'],
   ],
 }
-const APARTADOS_WEB: Apartado[] = [['Compradores y mercado en la región', 'tabla: empresa | ubicación | uso | fuente.'], ['Fuentes consultadas', 'enlaces citados.']]
+const APARTADOS_WEB: Apartado[] = [['Compradores y mercado en la región', 'tabla: empresa | ubicación | distancia aprox. | uso | fuente, ordenada de la más cercana a la más lejana. Antes de la tabla, di en una frase desde qué punto mides (el punto de muestreo si hay coordenadas; si no, el casco urbano del municipio). Incluye solo compradores de usos aptos o condicionales, y que el uso sea plausible para esa empresa. Las empresas dentro del mismo municipio de referencia van primero y su orden entre sí no importa. Si no puedes estimar la distancia con base razonable, escribe «no determinada» y pon esa fila al final; no inventes kilómetros.'], ['Fuentes consultadas', 'enlaces citados.']]
 
 export function tarea_informe(alcance: Alcance, opciones: { web?: boolean } = {}) {
   const base = APARTADOS[alcance]
@@ -157,12 +153,13 @@ const PROMPT_FRX_DEFAULT = `Actúa como geoquímico senior especializado en fluo
 
 Analiza exclusivamente los resultados de FRX suministrados (tabla de resultados y, si existe, el espectro), siguiendo este método:
 
-1. Calidad del dato
+1. Calidad del dato (trabajo interno: sirve para ponderar tus conclusiones, no para describirlo en el informe)
+- No reportes condiciones instrumentales (canal, kV, corriente, atmósfera), ni una tabla ni una lista de fiabilidad por elemento. Menciona una traza solo si cambia una conclusión, en una frase.
 - Identifica el método y las condiciones de medición (programa semicuantitativo sin patrones como Omnian, tensión del tubo, atmósfera). Un análisis sin patrones es semicuantitativo: dilo y ajusta la confianza de tus conclusiones.
 - Verifica la suma de óxidos. Si el equipo normalizó al 100 % sin CO₂, los resultados están en base libre de volátiles (equivalente a calcinada): no los interpretes como roca total sin corregir por LOI.
 - Distingue LOI medido de LOI estimado. Si el LOI se estimó a partir del propio CaO/MgO, el CaCO₃ derivado es circular: indícalo y no lo presentes como pureza determinada.
 - Criterio físico: la línea K de un elemento solo se excita si la tensión del tubo supera su borde de absorción K (Mn 6,5 keV; Fe 7,1; Zn 9,7; As 11,9; Rb 15,2; Sr 16,1; Zr 18,0; para Pb, su borde L3 es 13,0 keV). Si la tensión es menor, el valor proviene de líneas L o M de baja energía, casi siempre solapadas (Zn L con Na K; Rb L con Si Kα; Zr L con P K; As L con Mg Kα; Pb M con S Kα): ese elemento es como mínimo dudoso. Ojo: Omnian mide varias condiciones (baja tensión para ligeros, alta para pesados) y el espectro adjunto suele mostrar solo una. Aplica este criterio solo si los datos indican que esa fue la única condición medida; si no, no degrades Zn, Rb, Sr, Zr o Pb por la tensión de ese espectro y di que falta la lista de condiciones.
-- Evalúa la confiabilidad de cada elemento traza. En FRX de baja tensión con matriz cálcica son frecuentes los solapamientos y artefactos (p. ej. Sn L con Ca Kα; Pb M con S Kα; As L con Mg Kα) y los valores de tierras raras (Yb, Lu, Sm, Eu) en ppm suelen ser artefactos del ajuste. Clasifica cada traza como confiable, dudosa o probable artefacto, apoyándote en el espectro si está disponible, y no bases conclusiones críticas en valores dudosos.
+- Evalúa la confiabilidad de cada elemento traza. En FRX de baja tensión con matriz cálcica son frecuentes los solapamientos y artefactos (p. ej. Sn L con Ca Kα; Pb M con S Kα; As L con Mg Kα) y los valores de tierras raras (Yb, Lu, Sm, Eu) en ppm suelen ser artefactos del ajuste. Clasifica cada traza internamente como confiable, dudosa o probable artefacto, apoyándote en el espectro si está disponible. Una traza dudosa o artefacto no se cita como causa de un descarte ni de una inferencia: si un dictamen depende de ella, dilo en una frase y apóyate en otro criterio.
 - Con una sola muestra no hay variabilidad ni distribución que evaluar; no la infieras.
 
 2. Cálculos y relaciones

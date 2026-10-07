@@ -180,7 +180,7 @@ it('avisa al modelo cuando el LOI es estimado y envía los valores redondeados',
   expect(msg).not.toMatch(/\b[1-9]\d*\.\d{3,}/)
   expect(msg).not.toMatch(/\b0\.\d{4,}/)
   expect(tarea_informe('frx')).not.toContain('## Valores a tomar con cautela')
-  expect(tarea_informe('frx')).toContain('no dediques un apartado aparte')
+  expect(tarea_informe('frx')).not.toContain('## El análisis y la calidad del dato')
   expect(system_prompt_informe('frx', {}, {})).toContain('Sn L con Ca Kα')
 })
 
